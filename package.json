@@ -1,26 +1,50 @@
 {
-  "name": "inventarios-temp",
+  "name": "inventra360",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "next": "16.3.0-preview.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "@hookform/resolvers": "^5.4.0",
+    "@prisma/client": "^6.19.3",
+    "@tanstack/react-table": "^8.21.3",
+    "@zxing/browser": "^0.2.0",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^1.17.0",
+    "next": "^15.5.19",
+    "next-auth": "^4.24.14",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-hook-form": "^7.78.0",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0-preview.0",
+    "eslint-config-next": "^15.5.19",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "typescript-eslint": "^8.61.0"
   }
 }

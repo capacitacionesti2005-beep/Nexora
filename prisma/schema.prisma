@@ -1,0 +1,535 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum WarehouseType {
+  MAIN
+  SECONDARY
+  POINT_OF_SALE
+  TEMPORARY
+  QUARANTINE
+  RETURNS
+  PRODUCTION
+  INTERNAL_CONSUMPTION
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+  RETURN
+  INITIAL_LOAD
+}
+
+enum PhysicalInventoryStatus {
+  DRAFT
+  COUNTING
+  REVIEW
+  APPROVED
+  ADJUSTED
+  CLOSED
+  CANCELLED
+}
+
+enum PhysicalInventoryItemStatus {
+  PENDING
+  COUNTED
+  REVIEWED
+  APPROVED
+  ADJUSTED
+}
+
+enum ImportBatchStatus {
+  UPLOADED
+  VALIDATING
+  READY
+  IMPORTED
+  FAILED
+  CANCELLED
+}
+
+model Company {
+  id                       String                    @id @default(cuid())
+  name                     String
+  taxId                    String                    @unique
+  sector                   String?
+  address                  String?
+  city                     String?
+  country                  String                    @default("Colombia")
+  currency                 String                    @default("COP")
+  logoUrl                  String?
+  uiTheme                  String                    @default("light")
+  uiDensity                String                    @default("comfortable")
+  accentColor              String                    @default("emerald")
+  quantityDecimals         Int                       @default(2)
+  costDecimals             Int                       @default(2)
+  costingMethod            String                    @default("AVERAGE")
+  skuRequired              Boolean                   @default(false)
+  barcodeRequired          Boolean                   @default(false)
+  allowNegativeStock       Boolean                   @default(false)
+  scannerRequireLocation   Boolean                   @default(true)
+  scannerRequireUnit       Boolean                   @default(true)
+  status                   Status                    @default(ACTIVE)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  roles                    Role[]
+  users                    User[]
+  products                 Product[]
+  categories               Category[]
+  units                    UnitOfMeasure[]
+  conversions              UnitConversion[]
+  warehouses               Warehouse[]
+  locations                Location[]
+  stocks                   Stock[]
+  movements                InventoryMovement[]
+  inventories              PhysicalInventory[]
+  suppliers                Supplier[]
+  productSuppliers         ProductSupplier[]
+  productWarehouseSettings ProductWarehouseSetting[]
+  importBatches            ImportBatch[]
+  auditLogs                AuditLog[]
+}
+
+model User {
+  id                    String                  @id @default(cuid())
+  companyId             String
+  firstName             String
+  lastName              String
+  email                 String                  @unique
+  passwordHash          String
+  phone                 String?
+  position              String?
+  roleId                String
+  warehouseId           String?
+  status                Status                  @default(ACTIVE)
+  lastLoginAt           DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  company               Company                 @relation(fields: [companyId], references: [id])
+  role                  Role                    @relation(fields: [roleId], references: [id])
+  warehouse             Warehouse?              @relation("AssignedWarehouse", fields: [warehouseId], references: [id])
+  responsibleWarehouses Warehouse[]             @relation("WarehouseResponsible")
+  responsibleMovements  InventoryMovement[]     @relation("MovementResponsible")
+  approvedMovements     InventoryMovement[]     @relation("MovementApprover")
+  physicalInventories   PhysicalInventory[]
+  physicalItems         PhysicalInventoryItem[]
+  importBatches         ImportBatch[]
+  auditLogs             AuditLog[]
+
+  @@index([companyId])
+  @@index([roleId])
+  @@index([warehouseId])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  companyId   String?
+  name        String
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  company     Company?         @relation(fields: [companyId], references: [id])
+  users       User[]
+  permissions RolePermission[]
+
+  @@unique([companyId, name])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Product {
+  id                    String                    @id @default(cuid())
+  companyId             String
+  internalCode          String
+  barcode               String?
+  qrCode                String?
+  sku                   String?
+  name                  String
+  description           String?
+  categoryId            String?
+  brand                 String?
+  model                 String?
+  baseUnitId            String
+  purchaseUnitId        String?
+  saleUnitId            String?
+  conversionFactor      Decimal                   @default(1) @db.Decimal(18, 6)
+  unitCost              Decimal                   @default(0) @db.Decimal(18, 4)
+  averageCost           Decimal                   @default(0) @db.Decimal(18, 4)
+  minStock              Decimal                   @default(0) @db.Decimal(18, 6)
+  maxStock              Decimal                   @default(0) @db.Decimal(18, 6)
+  reorderPoint          Decimal                   @default(0) @db.Decimal(18, 6)
+  imageUrl              String?
+  isPerishable          Boolean                   @default(false)
+  managesLot            Boolean                   @default(false)
+  managesSerial         Boolean                   @default(false)
+  managesExpirationDate Boolean                   @default(false)
+  customAttributes      Json?
+  status                Status                    @default(ACTIVE)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  company               Company                   @relation(fields: [companyId], references: [id])
+  category              Category?                 @relation(fields: [categoryId], references: [id])
+  baseUnit              UnitOfMeasure             @relation("ProductBaseUnit", fields: [baseUnitId], references: [id])
+  purchaseUnit          UnitOfMeasure?            @relation("ProductPurchaseUnit", fields: [purchaseUnitId], references: [id])
+  saleUnit              UnitOfMeasure?            @relation("ProductSaleUnit", fields: [saleUnitId], references: [id])
+  conversions           UnitConversion[]
+  stocks                Stock[]
+  movements             InventoryMovement[]
+  physicalItems         PhysicalInventoryItem[]
+  suppliers             ProductSupplier[]
+  warehouseSettings     ProductWarehouseSetting[]
+
+  @@unique([companyId, internalCode])
+  @@index([companyId, barcode])
+  @@index([companyId, sku])
+}
+
+model Supplier {
+  id           String            @id @default(cuid())
+  companyId    String
+  code         String
+  name         String
+  taxId        String?
+  contactName  String?
+  email        String?
+  phone        String?
+  city         String?
+  leadTimeDays Int               @default(0)
+  status       Status            @default(ACTIVE)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  company      Company           @relation(fields: [companyId], references: [id])
+  products     ProductSupplier[]
+
+  @@unique([companyId, code])
+  @@index([companyId, name])
+}
+
+model ProductSupplier {
+  id                  String         @id @default(cuid())
+  companyId           String
+  productId           String
+  supplierId          String
+  supplierSku         String?
+  purchaseUnitId      String?
+  minPurchaseQuantity Decimal        @default(0) @db.Decimal(18, 6)
+  purchaseMultiple    Decimal        @default(1) @db.Decimal(18, 6)
+  lastPurchaseCost    Decimal        @default(0) @db.Decimal(18, 4)
+  leadTimeDays        Int?
+  isPrimary           Boolean        @default(false)
+  status              Status         @default(ACTIVE)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  company             Company        @relation(fields: [companyId], references: [id])
+  product             Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier            Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  purchaseUnit        UnitOfMeasure? @relation("ProductSupplierPurchaseUnit", fields: [purchaseUnitId], references: [id])
+
+  @@unique([companyId, productId, supplierId])
+  @@index([companyId, supplierId])
+}
+
+model Category {
+  id          String              @id @default(cuid())
+  companyId   String
+  parentId    String?
+  code        String?
+  name        String
+  description String?
+  status      Status              @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  company     Company             @relation(fields: [companyId], references: [id])
+  parent      Category?           @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[]          @relation("CategoryTree")
+  products    Product[]
+  inventories PhysicalInventory[]
+
+  @@unique([companyId, name])
+  @@index([companyId, parentId])
+}
+
+model UnitOfMeasure {
+  id               String                  @id @default(cuid())
+  companyId        String
+  name             String
+  abbreviation     String
+  type             String
+  status           Status                  @default(ACTIVE)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  company          Company                 @relation(fields: [companyId], references: [id])
+  baseProducts     Product[]               @relation("ProductBaseUnit")
+  purchaseProducts Product[]               @relation("ProductPurchaseUnit")
+  saleProducts     Product[]               @relation("ProductSaleUnit")
+  conversionsFrom  UnitConversion[]        @relation("ConversionFrom")
+  conversionsTo    UnitConversion[]        @relation("ConversionTo")
+  movements        InventoryMovement[]
+  physicalItems    PhysicalInventoryItem[]
+  supplierProducts ProductSupplier[]       @relation("ProductSupplierPurchaseUnit")
+
+  @@unique([companyId, abbreviation])
+}
+
+model UnitConversion {
+  id         String        @id @default(cuid())
+  companyId  String
+  productId  String
+  fromUnitId String
+  toUnitId   String
+  factor     Decimal       @db.Decimal(18, 6)
+  status     Status        @default(ACTIVE)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  company    Company       @relation(fields: [companyId], references: [id])
+  product    Product       @relation(fields: [productId], references: [id])
+  fromUnit   UnitOfMeasure @relation("ConversionFrom", fields: [fromUnitId], references: [id])
+  toUnit     UnitOfMeasure @relation("ConversionTo", fields: [toUnitId], references: [id])
+
+  @@unique([companyId, productId, fromUnitId, toUnitId])
+}
+
+model Warehouse {
+  id                String                    @id @default(cuid())
+  companyId         String
+  code              String
+  name              String
+  type              WarehouseType             @default(MAIN)
+  address           String?
+  city              String?
+  responsibleUserId String?
+  status            Status                    @default(ACTIVE)
+  notes             String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  company           Company                   @relation(fields: [companyId], references: [id])
+  responsibleUser   User?                     @relation("WarehouseResponsible", fields: [responsibleUserId], references: [id])
+  assignedUsers     User[]                    @relation("AssignedWarehouse")
+  locations         Location[]
+  stocks            Stock[]
+  movementsFrom     InventoryMovement[]       @relation("MovementWarehouseFrom")
+  movementsTo       InventoryMovement[]       @relation("MovementWarehouseTo")
+  inventories       PhysicalInventory[]
+  physicalItems     PhysicalInventoryItem[]
+  productSettings   ProductWarehouseSetting[]
+
+  @@unique([companyId, code])
+}
+
+model Location {
+  id            String                  @id @default(cuid())
+  companyId     String
+  warehouseId   String
+  zone          String?
+  aisle         String?
+  shelf         String?
+  level         String?
+  position      String?
+  locationCode  String
+  description   String?
+  status        Status                  @default(ACTIVE)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  company       Company                 @relation(fields: [companyId], references: [id])
+  warehouse     Warehouse               @relation(fields: [warehouseId], references: [id])
+  stocks        Stock[]
+  movementsFrom InventoryMovement[]     @relation("MovementLocationFrom")
+  movementsTo   InventoryMovement[]     @relation("MovementLocationTo")
+  physicalItems PhysicalInventoryItem[]
+
+  @@unique([companyId, locationCode])
+  @@index([warehouseId])
+}
+
+model ProductWarehouseSetting {
+  id           String    @id @default(cuid())
+  companyId    String
+  productId    String
+  warehouseId  String
+  minStock     Decimal   @default(0) @db.Decimal(18, 6)
+  maxStock     Decimal   @default(0) @db.Decimal(18, 6)
+  reorderPoint Decimal   @default(0) @db.Decimal(18, 6)
+  status       Status    @default(ACTIVE)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  company      Company   @relation(fields: [companyId], references: [id])
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, productId, warehouseId])
+  @@index([companyId, warehouseId])
+}
+
+model Stock {
+  id                String    @id @default(cuid())
+  companyId         String
+  productId         String
+  warehouseId       String
+  locationId        String?
+  lotNumber         String?
+  serialNumber      String?
+  expirationDate    DateTime?
+  quantity          Decimal   @default(0) @db.Decimal(18, 6)
+  reservedQuantity  Decimal   @default(0) @db.Decimal(18, 6)
+  availableQuantity Decimal   @default(0) @db.Decimal(18, 6)
+  averageCost       Decimal   @default(0) @db.Decimal(18, 4)
+  totalCost         Decimal   @default(0) @db.Decimal(18, 4)
+  updatedAt         DateTime  @updatedAt
+  company           Company   @relation(fields: [companyId], references: [id])
+  product           Product   @relation(fields: [productId], references: [id])
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id])
+  location          Location? @relation(fields: [locationId], references: [id])
+
+  @@index([companyId, productId])
+  @@index([companyId, warehouseId])
+}
+
+model InventoryMovement {
+  id                String        @id @default(cuid())
+  companyId         String
+  productId         String
+  movementType      MovementType
+  movementReason    String
+  warehouseFromId   String?
+  locationFromId    String?
+  warehouseToId     String?
+  locationToId      String?
+  unitId            String
+  quantity          Decimal       @db.Decimal(18, 6)
+  unitCost          Decimal       @default(0) @db.Decimal(18, 4)
+  totalCost         Decimal       @default(0) @db.Decimal(18, 4)
+  documentNumber    String?
+  responsibleUserId String
+  approvedByUserId  String?
+  notes             String?
+  movementDate      DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  company           Company       @relation(fields: [companyId], references: [id])
+  product           Product       @relation(fields: [productId], references: [id])
+  warehouseFrom     Warehouse?    @relation("MovementWarehouseFrom", fields: [warehouseFromId], references: [id])
+  locationFrom      Location?     @relation("MovementLocationFrom", fields: [locationFromId], references: [id])
+  warehouseTo       Warehouse?    @relation("MovementWarehouseTo", fields: [warehouseToId], references: [id])
+  locationTo        Location?     @relation("MovementLocationTo", fields: [locationToId], references: [id])
+  unit              UnitOfMeasure @relation(fields: [unitId], references: [id])
+  responsibleUser   User          @relation("MovementResponsible", fields: [responsibleUserId], references: [id])
+  approvedByUser    User?         @relation("MovementApprover", fields: [approvedByUserId], references: [id])
+
+  @@index([companyId, movementDate])
+  @@index([companyId, productId])
+}
+
+model PhysicalInventory {
+  id                String                  @id @default(cuid())
+  companyId         String
+  code              String
+  name              String
+  warehouseId       String?
+  categoryId        String?
+  responsibleUserId String?
+  status            PhysicalInventoryStatus @default(DRAFT)
+  startDate         DateTime?
+  endDate           DateTime?
+  isBlindCount      Boolean                 @default(false)
+  notes             String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  company           Company                 @relation(fields: [companyId], references: [id])
+  warehouse         Warehouse?              @relation(fields: [warehouseId], references: [id])
+  category          Category?               @relation(fields: [categoryId], references: [id])
+  responsibleUser   User?                   @relation(fields: [responsibleUserId], references: [id])
+  items             PhysicalInventoryItem[]
+
+  @@unique([companyId, code])
+}
+
+model PhysicalInventoryItem {
+  id                  String                      @id @default(cuid())
+  physicalInventoryId String
+  productId           String
+  warehouseId         String
+  locationId          String?
+  lotNumber           String?
+  serialNumber        String?
+  expirationDate      DateTime?
+  systemQuantity      Decimal                     @default(0) @db.Decimal(18, 6)
+  countedQuantity     Decimal?                    @db.Decimal(18, 6)
+  difference          Decimal                     @default(0) @db.Decimal(18, 6)
+  unitId              String
+  responsibleUserId   String?
+  notes               String?
+  evidenceImageUrl    String?
+  countSource         String                      @default("MANUAL")
+  status              PhysicalInventoryItemStatus @default(PENDING)
+  countedAt           DateTime?
+  physicalInventory   PhysicalInventory           @relation(fields: [physicalInventoryId], references: [id], onDelete: Cascade)
+  product             Product                     @relation(fields: [productId], references: [id])
+  warehouse           Warehouse                   @relation(fields: [warehouseId], references: [id])
+  location            Location?                   @relation(fields: [locationId], references: [id])
+  unit                UnitOfMeasure               @relation(fields: [unitId], references: [id])
+  responsibleUser     User?                       @relation(fields: [responsibleUserId], references: [id])
+
+  @@index([physicalInventoryId])
+  @@index([productId])
+}
+
+model ImportBatch {
+  id              String            @id @default(cuid())
+  companyId       String
+  importType      String
+  fileName        String
+  status          ImportBatchStatus @default(UPLOADED)
+  totalRows       Int               @default(0)
+  validRows       Int               @default(0)
+  invalidRows     Int               @default(0)
+  createdByUserId String
+  createdAt       DateTime          @default(now())
+  company         Company           @relation(fields: [companyId], references: [id])
+  createdByUser   User              @relation(fields: [createdByUserId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId, createdAt])
+  @@index([entity, entityId])
+}

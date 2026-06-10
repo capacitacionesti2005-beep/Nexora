@@ -1,26 +1,295 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Segoe UI Mono", Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+#inventra360-app-shell {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.035), rgba(248, 250, 252, 0) 260px),
+    #f8fafc;
+}
+
+#inventra360-app-shell.app-theme-dark {
+  background:
+    linear-gradient(180deg, rgba(20, 184, 166, 0.08), rgba(2, 6, 23, 0) 280px),
+    #020617;
+}
+
+.premium-scrollbar {
+  scrollbar-color: rgba(20, 184, 166, 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+.premium-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.premium-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.premium-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(20, 184, 166, 0.28);
+  border-radius: 999px;
+}
+
+.premium-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 184, 166, 0.52);
+}
+
+.app-theme-dark {
+  color-scheme: dark;
+  --app-bg: #020617;
+  --app-surface: #0f172a;
+  --app-surface-soft: #1e293b;
+  --app-border: #334155;
+  --app-text: #e2e8f0;
+  --app-muted: #94a3b8;
+}
+
+.app-theme-dark .bg-slate-50,
+.app-theme-dark.bg-slate-50 {
+  background-color: var(--app-bg) !important;
+}
+
+.app-theme-dark .bg-white,
+.app-theme-dark .bg-white\/95 {
+  background-color: var(--app-surface) !important;
+}
+
+.app-theme-dark .bg-slate-100,
+.app-theme-dark .bg-slate-200 {
+  background-color: var(--app-surface-soft) !important;
+}
+
+.app-theme-dark .border-slate-100,
+.app-theme-dark .border-slate-200,
+.app-theme-dark .border-slate-300 {
+  border-color: var(--app-border) !important;
+}
+
+.app-theme-dark .text-slate-950,
+.app-theme-dark .text-slate-900,
+.app-theme-dark .text-slate-800,
+.app-theme-dark .text-slate-700 {
+  color: var(--app-text) !important;
+}
+
+.app-theme-dark .text-slate-600,
+.app-theme-dark .text-slate-500,
+.app-theme-dark .text-slate-400 {
+  color: var(--app-muted) !important;
+}
+
+.app-theme-dark input,
+.app-theme-dark select,
+.app-theme-dark textarea {
+  background-color: #111827 !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+
+.app-theme-dark table tbody,
+.app-theme-dark table thead {
+  background-color: var(--app-surface) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  #inventra360-app-shell.app-theme-system {
+    background:
+      linear-gradient(180deg, rgba(20, 184, 166, 0.08), rgba(2, 6, 23, 0) 280px),
+      #020617;
+  }
+
+  .app-theme-system {
+    color-scheme: dark;
+    --app-bg: #020617;
+    --app-surface: #0f172a;
+    --app-surface-soft: #1e293b;
+    --app-border: #334155;
+    --app-text: #e2e8f0;
+    --app-muted: #94a3b8;
+  }
+
+  .app-theme-system .bg-slate-50,
+  .app-theme-system.bg-slate-50 {
+    background-color: var(--app-bg) !important;
+  }
+
+  .app-theme-system .bg-white,
+  .app-theme-system .bg-white\/95 {
+    background-color: var(--app-surface) !important;
+  }
+
+  .app-theme-system .bg-slate-100,
+  .app-theme-system .bg-slate-200 {
+    background-color: var(--app-surface-soft) !important;
+  }
+
+  .app-theme-system .border-slate-100,
+  .app-theme-system .border-slate-200,
+  .app-theme-system .border-slate-300 {
+    border-color: var(--app-border) !important;
+  }
+
+  .app-theme-system .text-slate-950,
+  .app-theme-system .text-slate-900,
+  .app-theme-system .text-slate-800,
+  .app-theme-system .text-slate-700 {
+    color: var(--app-text) !important;
+  }
+
+  .app-theme-system .text-slate-600,
+  .app-theme-system .text-slate-500,
+  .app-theme-system .text-slate-400 {
+    color: var(--app-muted) !important;
+  }
+
+  .app-theme-system input,
+  .app-theme-system select,
+  .app-theme-system textarea {
+    background-color: #111827 !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text) !important;
+  }
+
+  .app-theme-system table tbody,
+  .app-theme-system table thead {
+    background-color: var(--app-surface) !important;
+  }
+}
+
+.app-density-compact main {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+.app-density-compact .p-6,
+.app-density-compact .p-5 {
+  padding: 1rem !important;
+}
+
+.app-density-compact .py-3 {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.app-density-compact .h-10 {
+  height: 2.25rem !important;
+}
+
+.app-density-compact .min-h-10 {
+  min-height: 2.25rem !important;
+}
+
+.app-accent-blue .bg-emerald-700 {
+  background-color: #2563eb !important;
+}
+
+.app-accent-blue .text-emerald-700 {
+  color: #1d4ed8 !important;
+}
+
+.app-accent-blue .bg-emerald-50 {
+  background-color: #eff6ff !important;
+}
+
+.app-accent-blue .border-emerald-200 {
+  border-color: #bfdbfe !important;
+}
+
+.app-accent-cyan .bg-emerald-700 {
+  background-color: #0891b2 !important;
+}
+
+.app-accent-cyan .text-emerald-700 {
+  color: #0e7490 !important;
+}
+
+.app-accent-cyan .bg-emerald-50 {
+  background-color: #ecfeff !important;
+}
+
+.app-accent-cyan .border-emerald-200 {
+  border-color: #a5f3fc !important;
+}
+
+.app-accent-violet .bg-emerald-700 {
+  background-color: #7c3aed !important;
+}
+
+.app-accent-violet .text-emerald-700 {
+  color: #6d28d9 !important;
+}
+
+.app-accent-violet .bg-emerald-50 {
+  background-color: #f5f3ff !important;
+}
+
+.app-accent-violet .border-emerald-200 {
+  border-color: #ddd6fe !important;
+}
+
+.qr-label-sheet img {
+  background: #ffffff;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .lg\:pl-72 {
+    padding-left: 0 !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .qr-label-sheet {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .qr-label {
+    break-inside: avoid;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
 }
