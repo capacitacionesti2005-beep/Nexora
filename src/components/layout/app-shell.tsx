@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Building2, PanelLeftClose, PanelLeftOpen, Plus, ShieldCheck } from "lucide-react";
+import { Building2, PanelLeftClose, PanelLeftOpen, Plus, Route, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { NexoraLogo, NexoraMark } from "@/components/brand/nexora-logo";
 import { GlobalSearch } from "@/components/layout/global-search";
@@ -18,25 +18,25 @@ export function AppShell({
 }: {
   children: ReactNode;
   user: { name?: string | null; companyName: string; roleName: string };
-  settings: { theme: string; density: string; accentColor: string };
+  settings: { theme: string; density: string; accentColor: string; inventoryModuleEnabled: boolean; transportModuleEnabled: boolean };
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    setIsSidebarCollapsed(window.localStorage.getItem("inventra360-sidebar") === "collapsed");
+    setIsSidebarCollapsed(window.localStorage.getItem("nexora-sidebar") === "collapsed");
   }, []);
 
   function toggleSidebar() {
     setIsSidebarCollapsed((current) => {
       const next = !current;
-      window.localStorage.setItem("inventra360-sidebar", next ? "collapsed" : "expanded");
+      window.localStorage.setItem("nexora-sidebar", next ? "collapsed" : "expanded");
       return next;
     });
   }
 
   return (
     <div
-      id="inventra360-app-shell"
+      id="nexora-app-shell"
       className={cn(
         "min-h-screen bg-slate-50 text-slate-950",
         `app-theme-${settings.theme}`,
@@ -66,19 +66,33 @@ export function AppShell({
               <span className="sr-only">{isSidebarCollapsed ? "Expandir menu" : "Contraer menu"}</span>
             </button>
           </div>
-          <Link
-            href="/movements/entries"
-            className={cn(
-              "mt-5 flex h-10 items-center justify-center gap-2 rounded-md bg-slate-500/70 px-3 text-sm font-bold text-white transition hover:bg-slate-500",
-              isSidebarCollapsed && "mx-auto w-11 px-0",
-            )}
-            title="Nueva entrada"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            <span className={cn(isSidebarCollapsed && "hidden")}>Nueva entrada</span>
-          </Link>
+          {settings.inventoryModuleEnabled ? (
+            <Link
+              href="/movements/entries"
+              className={cn(
+                "mt-5 flex h-10 items-center justify-center gap-2 rounded-md bg-slate-500/70 px-3 text-sm font-bold text-white transition hover:bg-slate-500",
+                isSidebarCollapsed && "mx-auto w-11 px-0",
+              )}
+              title="Nueva entrada"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span className={cn(isSidebarCollapsed && "hidden")}>Nueva entrada</span>
+            </Link>
+          ) : settings.transportModuleEnabled ? (
+            <Link
+              href="/transport"
+              className={cn(
+                "mt-5 flex h-10 items-center justify-center gap-2 rounded-md bg-cyan-500 px-3 text-sm font-bold text-white transition hover:bg-cyan-600",
+                isSidebarCollapsed && "mx-auto w-11 px-0",
+              )}
+              title="Abrir transporte"
+            >
+              <Route className="h-4 w-4" aria-hidden="true" />
+              <span className={cn(isSidebarCollapsed && "hidden")}>Abrir transporte</span>
+            </Link>
+          ) : null}
         </div>
-        <SidebarNav collapsed={isSidebarCollapsed} />
+        <SidebarNav collapsed={isSidebarCollapsed} inventoryModuleEnabled={settings.inventoryModuleEnabled} transportModuleEnabled={settings.transportModuleEnabled} />
         <div className={cn("border-t border-white/5 bg-[#1c2633] py-4", isSidebarCollapsed ? "px-3" : "px-4")}>
           <div className={cn("rounded-lg bg-cyan-500 px-3 py-3 text-white shadow-sm shadow-cyan-950/20", isSidebarCollapsed && "grid place-items-center px-0")}>
             <div className="flex items-center gap-2">
@@ -97,7 +111,13 @@ export function AppShell({
               <div className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 lg:hidden">
                 <NexoraMark className="h-7 w-7" />
               </div>
-              <GlobalSearch />
+              {settings.inventoryModuleEnabled ? (
+                <GlobalSearch />
+              ) : (
+                <div className="hidden min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 sm:flex">
+                  {settings.transportModuleEnabled ? "Transporte activo" : "Sin modulos operativos activos"}
+                </div>
+              )}
               <div className="flex min-w-0 items-center gap-2 text-sm text-slate-600 md:hidden">
                 <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{user.companyName}</span>
@@ -109,7 +129,7 @@ export function AppShell({
             </div>
           </div>
           <div className="border-t border-slate-200 bg-white lg:hidden">
-            <SidebarNav variant="mobile" />
+            <SidebarNav variant="mobile" inventoryModuleEnabled={settings.inventoryModuleEnabled} transportModuleEnabled={settings.transportModuleEnabled} />
           </div>
         </header>
 

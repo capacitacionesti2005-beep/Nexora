@@ -13,7 +13,7 @@ const themes: Array<{ value: ThemePreference; label: string; icon: typeof Sun }>
 ];
 
 function applyThemeClass(theme: ThemePreference) {
-  const root = document.getElementById("inventra360-app-shell");
+  const root = document.getElementById("nexora-app-shell");
   if (!root) return;
 
   root.classList.remove("app-theme-light", "app-theme-dark", "app-theme-system");
@@ -25,7 +25,7 @@ export function ThemeSwitcher({ currentTheme }: { currentTheme: string }) {
   const activeTheme: ThemePreference = currentTheme === "light" || currentTheme === "dark" || currentTheme === "system" ? currentTheme : "system";
 
   function changeTheme(theme: ThemePreference) {
-    document.cookie = `inventra360-theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
+    document.cookie = `nexora-theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
     applyThemeClass(theme);
     router.refresh();
   }

@@ -1,6 +1,6 @@
-﻿# Inventra360
+# Nexora
 
-Plataforma web SaaS para gestion de inventarios multisector, preparada para multiempresa, roles, trazabilidad, movimientos de stock e Inventario Rapido Inteligente.
+Plataforma web SaaS empresarial para inventarios y transporte, preparada para multiempresa, roles, trazabilidad, movimientos de stock, Inventario Rapido Inteligente y operacion logistica integrada.
 
 ## Requisitos
 
@@ -22,7 +22,7 @@ npm run dev
 
 Usuario demo creado por seed:
 
-- Correo: `admin@inventra360.local`
+- Correo: `admin@nexora.local`
 - Contrasena: `Admin12345!`
 
 ## Scripts

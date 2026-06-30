@@ -76,6 +76,19 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
             </SelectInput>
           </Field>
           <div className="lg:col-span-3">
+            <h3 className="text-sm font-semibold text-slate-950">Modulos Nexora</h3>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
+                <input name="inventoryModuleEnabled" type="checkbox" defaultChecked={company.inventoryModuleEnabled} className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-700" />
+                Activar modulo de inventarios
+              </label>
+              <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700">
+                <input name="transportModuleEnabled" type="checkbox" defaultChecked={company.transportModuleEnabled} className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-700" />
+                Activar modulo de transporte
+              </label>
+            </div>
+          </div>
+          <div className="lg:col-span-3">
             <h3 className="text-sm font-semibold text-slate-950">Utilidades operativas</h3>
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               {[

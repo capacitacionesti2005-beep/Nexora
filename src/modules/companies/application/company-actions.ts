@@ -39,6 +39,8 @@ export async function updateCompanySettings(formData: FormData) {
     allowNegativeStock: z.boolean().default(false),
     scannerRequireLocation: z.boolean().default(true),
     scannerRequireUnit: z.boolean().default(true),
+    inventoryModuleEnabled: z.boolean().default(true),
+    transportModuleEnabled: z.boolean().default(false),
   });
 
   const data = schema.parse({
@@ -61,6 +63,8 @@ export async function updateCompanySettings(formData: FormData) {
     allowNegativeStock: formData.get("allowNegativeStock") === "on",
     scannerRequireLocation: formData.get("scannerRequireLocation") === "on",
     scannerRequireUnit: formData.get("scannerRequireUnit") === "on",
+    inventoryModuleEnabled: formData.get("inventoryModuleEnabled") === "on",
+    transportModuleEnabled: formData.get("transportModuleEnabled") === "on",
   });
 
   const company = await prisma.company.update({

@@ -30,13 +30,13 @@ a {
   text-decoration: none;
 }
 
-#inventra360-app-shell {
+#nexora-app-shell {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.035), rgba(248, 250, 252, 0) 260px),
     #f8fafc;
 }
 
-#inventra360-app-shell.app-theme-dark {
+#nexora-app-shell.app-theme-dark {
   background:
     linear-gradient(180deg, rgba(20, 184, 166, 0.08), rgba(2, 6, 23, 0) 280px),
     #020617;
@@ -122,7 +122,7 @@ a {
 }
 
 @media (prefers-color-scheme: dark) {
-  #inventra360-app-shell.app-theme-system {
+  #nexora-app-shell.app-theme-system {
     background:
       linear-gradient(180deg, rgba(20, 184, 166, 0.08), rgba(2, 6, 23, 0) 280px),
       #020617;

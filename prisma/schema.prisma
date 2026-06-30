@@ -59,46 +59,87 @@ enum ImportBatchStatus {
   CANCELLED
 }
 
+enum TransportAssetStatus {
+  AVAILABLE
+  IN_ROUTE
+  MAINTENANCE
+  BLOCKED
+  INACTIVE
+}
+
+enum TransportMaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  CANCELLED
+}
+
+enum TransportComponentCondition {
+  GOOD
+  WARNING
+  CRITICAL
+}
+
+enum TransportComponentEventType {
+  INSPECTION
+  COMMENT
+  ADJUSTMENT
+  MAINTENANCE
+  REPLACEMENT
+}
+
 model Company {
-  id                       String                    @id @default(cuid())
-  name                     String
-  taxId                    String                    @unique
-  sector                   String?
-  address                  String?
-  city                     String?
-  country                  String                    @default("Colombia")
-  currency                 String                    @default("COP")
-  logoUrl                  String?
-  uiTheme                  String                    @default("light")
-  uiDensity                String                    @default("comfortable")
-  accentColor              String                    @default("emerald")
-  quantityDecimals         Int                       @default(2)
-  costDecimals             Int                       @default(2)
-  costingMethod            String                    @default("AVERAGE")
-  skuRequired              Boolean                   @default(false)
-  barcodeRequired          Boolean                   @default(false)
-  allowNegativeStock       Boolean                   @default(false)
-  scannerRequireLocation   Boolean                   @default(true)
-  scannerRequireUnit       Boolean                   @default(true)
-  status                   Status                    @default(ACTIVE)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  roles                    Role[]
-  users                    User[]
-  products                 Product[]
-  categories               Category[]
-  units                    UnitOfMeasure[]
-  conversions              UnitConversion[]
-  warehouses               Warehouse[]
-  locations                Location[]
-  stocks                   Stock[]
-  movements                InventoryMovement[]
-  inventories              PhysicalInventory[]
-  suppliers                Supplier[]
-  productSuppliers         ProductSupplier[]
-  productWarehouseSettings ProductWarehouseSetting[]
-  importBatches            ImportBatch[]
-  auditLogs                AuditLog[]
+  id                         String                      @id @default(cuid())
+  name                       String
+  taxId                      String                      @unique
+  sector                     String?
+  address                    String?
+  city                       String?
+  country                    String                      @default("Colombia")
+  currency                   String                      @default("COP")
+  logoUrl                    String?
+  uiTheme                    String                      @default("light")
+  uiDensity                  String                      @default("comfortable")
+  accentColor                String                      @default("emerald")
+  quantityDecimals           Int                         @default(2)
+  costDecimals               Int                         @default(2)
+  costingMethod              String                      @default("AVERAGE")
+  skuRequired                Boolean                     @default(false)
+  barcodeRequired            Boolean                     @default(false)
+  allowNegativeStock         Boolean                     @default(false)
+  scannerRequireLocation     Boolean                     @default(true)
+  scannerRequireUnit         Boolean                     @default(true)
+  inventoryModuleEnabled     Boolean                     @default(true)
+  transportModuleEnabled     Boolean                     @default(false)
+  status                     Status                      @default(ACTIVE)
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  roles                      Role[]
+  users                      User[]
+  products                   Product[]
+  categories                 Category[]
+  units                      UnitOfMeasure[]
+  conversions                UnitConversion[]
+  warehouses                 Warehouse[]
+  locations                  Location[]
+  stocks                     Stock[]
+  movements                  InventoryMovement[]
+  inventories                PhysicalInventory[]
+  suppliers                  Supplier[]
+  productSuppliers           ProductSupplier[]
+  productWarehouseSettings   ProductWarehouseSetting[]
+  importBatches              ImportBatch[]
+  transportVehicles          TransportVehicle[]
+  transportDrivers           TransportDriver[]
+  transportOrders            TransportOrder[]
+  transportMaintenances      TransportMaintenanceOrder[]
+  transportFuelLogs          TransportFuelLog[]
+  transportTires             TransportTire[]
+  transportTripExpenses      TransportTripExpense[]
+  transportTripAdvances      TransportTripAdvance[]
+  transportChecklists        TransportChecklist[]
+  auditLogs                  AuditLog[]
+  transportVehicleComponents TransportVehicleComponent[]
 }
 
 model User {
@@ -165,7 +206,7 @@ model RolePermission {
 }
 
 model Product {
-  id                    String                    @id @default(cuid())
+  id                    String                     @id @default(cuid())
   companyId             String
   internalCode          String
   barcode               String?
@@ -179,29 +220,30 @@ model Product {
   baseUnitId            String
   purchaseUnitId        String?
   saleUnitId            String?
-  conversionFactor      Decimal                   @default(1) @db.Decimal(18, 6)
-  unitCost              Decimal                   @default(0) @db.Decimal(18, 4)
-  averageCost           Decimal                   @default(0) @db.Decimal(18, 4)
-  minStock              Decimal                   @default(0) @db.Decimal(18, 6)
-  maxStock              Decimal                   @default(0) @db.Decimal(18, 6)
-  reorderPoint          Decimal                   @default(0) @db.Decimal(18, 6)
+  conversionFactor      Decimal                    @default(1) @db.Decimal(18, 6)
+  unitCost              Decimal                    @default(0) @db.Decimal(18, 4)
+  averageCost           Decimal                    @default(0) @db.Decimal(18, 4)
+  minStock              Decimal                    @default(0) @db.Decimal(18, 6)
+  maxStock              Decimal                    @default(0) @db.Decimal(18, 6)
+  reorderPoint          Decimal                    @default(0) @db.Decimal(18, 6)
   imageUrl              String?
-  isPerishable          Boolean                   @default(false)
-  managesLot            Boolean                   @default(false)
-  managesSerial         Boolean                   @default(false)
-  managesExpirationDate Boolean                   @default(false)
+  isPerishable          Boolean                    @default(false)
+  managesLot            Boolean                    @default(false)
+  managesSerial         Boolean                    @default(false)
+  managesExpirationDate Boolean                    @default(false)
   customAttributes      Json?
-  status                Status                    @default(ACTIVE)
-  createdAt             DateTime                  @default(now())
-  updatedAt             DateTime                  @updatedAt
-  company               Company                   @relation(fields: [companyId], references: [id])
-  category              Category?                 @relation(fields: [categoryId], references: [id])
-  baseUnit              UnitOfMeasure             @relation("ProductBaseUnit", fields: [baseUnitId], references: [id])
-  purchaseUnit          UnitOfMeasure?            @relation("ProductPurchaseUnit", fields: [purchaseUnitId], references: [id])
-  saleUnit              UnitOfMeasure?            @relation("ProductSaleUnit", fields: [saleUnitId], references: [id])
+  status                Status                     @default(ACTIVE)
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  company               Company                    @relation(fields: [companyId], references: [id])
+  category              Category?                  @relation(fields: [categoryId], references: [id])
+  baseUnit              UnitOfMeasure              @relation("ProductBaseUnit", fields: [baseUnitId], references: [id])
+  purchaseUnit          UnitOfMeasure?             @relation("ProductPurchaseUnit", fields: [purchaseUnitId], references: [id])
+  saleUnit              UnitOfMeasure?             @relation("ProductSaleUnit", fields: [saleUnitId], references: [id])
   conversions           UnitConversion[]
   stocks                Stock[]
   movements             InventoryMovement[]
+  transportParts        TransportMaintenancePart[]
   physicalItems         PhysicalInventoryItem[]
   suppliers             ProductSupplier[]
   warehouseSettings     ProductWarehouseSetting[]
@@ -318,25 +360,26 @@ model UnitConversion {
 }
 
 model Warehouse {
-  id                String                    @id @default(cuid())
+  id                String                     @id @default(cuid())
   companyId         String
   code              String
   name              String
-  type              WarehouseType             @default(MAIN)
+  type              WarehouseType              @default(MAIN)
   address           String?
   city              String?
   responsibleUserId String?
-  status            Status                    @default(ACTIVE)
+  status            Status                     @default(ACTIVE)
   notes             String?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-  company           Company                   @relation(fields: [companyId], references: [id])
-  responsibleUser   User?                     @relation("WarehouseResponsible", fields: [responsibleUserId], references: [id])
-  assignedUsers     User[]                    @relation("AssignedWarehouse")
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  company           Company                    @relation(fields: [companyId], references: [id])
+  responsibleUser   User?                      @relation("WarehouseResponsible", fields: [responsibleUserId], references: [id])
+  assignedUsers     User[]                     @relation("AssignedWarehouse")
   locations         Location[]
   stocks            Stock[]
-  movementsFrom     InventoryMovement[]       @relation("MovementWarehouseFrom")
-  movementsTo       InventoryMovement[]       @relation("MovementWarehouseTo")
+  transportParts    TransportMaintenancePart[]
+  movementsFrom     InventoryMovement[]        @relation("MovementWarehouseFrom")
+  movementsTo       InventoryMovement[]        @relation("MovementWarehouseTo")
   inventories       PhysicalInventory[]
   physicalItems     PhysicalInventoryItem[]
   productSettings   ProductWarehouseSetting[]
@@ -345,25 +388,26 @@ model Warehouse {
 }
 
 model Location {
-  id            String                  @id @default(cuid())
-  companyId     String
-  warehouseId   String
-  zone          String?
-  aisle         String?
-  shelf         String?
-  level         String?
-  position      String?
-  locationCode  String
-  description   String?
-  status        Status                  @default(ACTIVE)
-  createdAt     DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
-  company       Company                 @relation(fields: [companyId], references: [id])
-  warehouse     Warehouse               @relation(fields: [warehouseId], references: [id])
-  stocks        Stock[]
-  movementsFrom InventoryMovement[]     @relation("MovementLocationFrom")
-  movementsTo   InventoryMovement[]     @relation("MovementLocationTo")
-  physicalItems PhysicalInventoryItem[]
+  id             String                     @id @default(cuid())
+  companyId      String
+  warehouseId    String
+  zone           String?
+  aisle          String?
+  shelf          String?
+  level          String?
+  position       String?
+  locationCode   String
+  description    String?
+  status         Status                     @default(ACTIVE)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  company        Company                    @relation(fields: [companyId], references: [id])
+  warehouse      Warehouse                  @relation(fields: [warehouseId], references: [id])
+  stocks         Stock[]
+  transportParts TransportMaintenancePart[]
+  movementsFrom  InventoryMovement[]        @relation("MovementLocationFrom")
+  movementsTo    InventoryMovement[]        @relation("MovementLocationTo")
+  physicalItems  PhysicalInventoryItem[]
 
   @@unique([companyId, locationCode])
   @@index([warehouseId])
@@ -413,7 +457,7 @@ model Stock {
 }
 
 model InventoryMovement {
-  id                String        @id @default(cuid())
+  id                String                    @id @default(cuid())
   companyId         String
   productId         String
   movementType      MovementType
@@ -423,27 +467,295 @@ model InventoryMovement {
   warehouseToId     String?
   locationToId      String?
   unitId            String
-  quantity          Decimal       @db.Decimal(18, 6)
-  unitCost          Decimal       @default(0) @db.Decimal(18, 4)
-  totalCost         Decimal       @default(0) @db.Decimal(18, 4)
+  quantity          Decimal                   @db.Decimal(18, 6)
+  unitCost          Decimal                   @default(0) @db.Decimal(18, 4)
+  totalCost         Decimal                   @default(0) @db.Decimal(18, 4)
   documentNumber    String?
   responsibleUserId String
   approvedByUserId  String?
   notes             String?
-  movementDate      DateTime      @default(now())
-  createdAt         DateTime      @default(now())
-  company           Company       @relation(fields: [companyId], references: [id])
-  product           Product       @relation(fields: [productId], references: [id])
-  warehouseFrom     Warehouse?    @relation("MovementWarehouseFrom", fields: [warehouseFromId], references: [id])
-  locationFrom      Location?     @relation("MovementLocationFrom", fields: [locationFromId], references: [id])
-  warehouseTo       Warehouse?    @relation("MovementWarehouseTo", fields: [warehouseToId], references: [id])
-  locationTo        Location?     @relation("MovementLocationTo", fields: [locationToId], references: [id])
-  unit              UnitOfMeasure @relation(fields: [unitId], references: [id])
-  responsibleUser   User          @relation("MovementResponsible", fields: [responsibleUserId], references: [id])
-  approvedByUser    User?         @relation("MovementApprover", fields: [approvedByUserId], references: [id])
+  movementDate      DateTime                  @default(now())
+  createdAt         DateTime                  @default(now())
+  company           Company                   @relation(fields: [companyId], references: [id])
+  product           Product                   @relation(fields: [productId], references: [id])
+  warehouseFrom     Warehouse?                @relation("MovementWarehouseFrom", fields: [warehouseFromId], references: [id])
+  locationFrom      Location?                 @relation("MovementLocationFrom", fields: [locationFromId], references: [id])
+  warehouseTo       Warehouse?                @relation("MovementWarehouseTo", fields: [warehouseToId], references: [id])
+  locationTo        Location?                 @relation("MovementLocationTo", fields: [locationToId], references: [id])
+  unit              UnitOfMeasure             @relation(fields: [unitId], references: [id])
+  responsibleUser   User                      @relation("MovementResponsible", fields: [responsibleUserId], references: [id])
+  approvedByUser    User?                     @relation("MovementApprover", fields: [approvedByUserId], references: [id])
+  transportPart     TransportMaintenancePart?
 
   @@index([companyId, movementDate])
   @@index([companyId, productId])
+}
+
+model TransportVehicle {
+  id           String                      @id @default(cuid())
+  companyId    String
+  plate        String
+  type         String
+  vehicleClass String                      @default("TRUCK")
+  bodyType     String                      @default("Furgon")
+  trailerType  String?
+  wheelCount   Int                         @default(6)
+  refrigerated Boolean                     @default(false)
+  hasLiftGate  Boolean                     @default(false)
+  status       TransportAssetStatus        @default(AVAILABLE)
+  capacity     String?
+  odometer     Int                         @default(0)
+  currentZone  String?
+  notes        String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  company      Company                     @relation(fields: [companyId], references: [id])
+  orders       TransportOrder[]
+  maintenances TransportMaintenanceOrder[]
+  fuelLogs     TransportFuelLog[]
+  tires        TransportTire[]
+  tripExpenses TransportTripExpense[]
+  checklists   TransportChecklist[]
+  components   TransportVehicleComponent[]
+  componentEvents TransportVehicleComponentEvent[]
+
+  @@unique([companyId, plate])
+  @@index([companyId, status])
+  @@index([companyId, vehicleClass])
+}
+
+model TransportVehicleComponent {
+  id            String                      @id @default(cuid())
+  companyId     String
+  vehicleId     String
+  componentKey  String
+  label         String
+  category      String
+  side          String?
+  condition     TransportComponentCondition @default(GOOD)
+  currentValue  String?
+  threshold     String?
+  nextAction    String?
+  x             Decimal                     @default(50) @db.Decimal(5, 2)
+  y             Decimal                     @default(50) @db.Decimal(5, 2)
+  view          String                      @default("diagonal")
+  lastCheckedAt DateTime?
+  nextDueAt     DateTime?
+  nextDueKm     Int?
+  notes         String?
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+  company       Company                     @relation(fields: [companyId], references: [id])
+  vehicle       TransportVehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  events        TransportVehicleComponentEvent[]
+
+  @@unique([vehicleId, componentKey])
+  @@index([companyId, condition])
+  @@index([companyId, vehicleId])
+}
+
+model TransportVehicleComponentEvent {
+  id                String                      @id @default(cuid())
+  companyId         String
+  vehicleId         String
+  componentId       String
+  eventType         TransportComponentEventType @default(INSPECTION)
+  title             String
+  previousCondition TransportComponentCondition?
+  newCondition      TransportComponentCondition?
+  currentValue      String?
+  nextDueKm         Int?
+  odometer          Int?
+  notes             String?
+  evidenceUrl       String?
+  createdByName     String?
+  createdAt         DateTime                    @default(now())
+  vehicle           TransportVehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  component         TransportVehicleComponent   @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, vehicleId, createdAt])
+  @@index([companyId, componentId, createdAt])
+}
+
+model TransportDriver {
+  id           String                 @id @default(cuid())
+  companyId    String
+  name         String
+  documentId   String?
+  license      String?
+  status       TransportAssetStatus   @default(AVAILABLE)
+  phone        String?
+  score        Int                    @default(100)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  company      Company                @relation(fields: [companyId], references: [id])
+  orders       TransportOrder[]
+  fuelLogs     TransportFuelLog[]
+  tripExpenses TransportTripExpense[]
+  tripAdvances TransportTripAdvance[]
+  checklists   TransportChecklist[]
+
+  @@unique([companyId, documentId])
+  @@index([companyId, status])
+}
+
+model TransportOrder {
+  id           String                 @id @default(cuid())
+  companyId    String
+  code         String
+  customer     String
+  origin       String
+  destination  String
+  status       String                 @default("Planificada")
+  priority     String                 @default("Media")
+  eta          DateTime?
+  vehicleId    String?
+  driverId     String?
+  value        Decimal                @default(0) @db.Decimal(18, 4)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  company      Company                @relation(fields: [companyId], references: [id])
+  vehicle      TransportVehicle?      @relation(fields: [vehicleId], references: [id])
+  driver       TransportDriver?       @relation(fields: [driverId], references: [id])
+  tripExpenses TransportTripExpense[]
+  tripAdvances TransportTripAdvance[]
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+}
+
+model TransportMaintenanceOrder {
+  id        String                     @id @default(cuid())
+  companyId String
+  code      String
+  vehicleId String
+  status    TransportMaintenanceStatus @default(OPEN)
+  type      String                     @default("Correctivo")
+  odometer  Int?
+  notes     String?
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+  company   Company                    @relation(fields: [companyId], references: [id])
+  vehicle   TransportVehicle           @relation(fields: [vehicleId], references: [id])
+  parts     TransportMaintenancePart[]
+
+  @@unique([companyId, code])
+  @@index([companyId, vehicleId])
+  @@index([companyId, status])
+}
+
+model TransportMaintenancePart {
+  id                  String                    @id @default(cuid())
+  companyId           String
+  maintenanceOrderId  String
+  productId           String
+  warehouseId         String
+  locationId          String?
+  inventoryMovementId String?                   @unique
+  quantity            Decimal                   @db.Decimal(18, 6)
+  unitCost            Decimal                   @default(0) @db.Decimal(18, 4)
+  totalCost           Decimal                   @default(0) @db.Decimal(18, 4)
+  notes               String?
+  createdAt           DateTime                  @default(now())
+  maintenanceOrder    TransportMaintenanceOrder @relation(fields: [maintenanceOrderId], references: [id], onDelete: Cascade)
+  product             Product                   @relation(fields: [productId], references: [id])
+  warehouse           Warehouse                 @relation(fields: [warehouseId], references: [id])
+  location            Location?                 @relation(fields: [locationId], references: [id])
+  inventoryMovement   InventoryMovement?        @relation(fields: [inventoryMovementId], references: [id])
+
+  @@index([companyId, productId])
+  @@index([companyId, createdAt])
+}
+
+model TransportFuelLog {
+  id         String           @id @default(cuid())
+  companyId  String
+  vehicleId  String
+  driverId   String?
+  gallons    Decimal          @db.Decimal(18, 4)
+  unitPrice  Decimal          @db.Decimal(18, 4)
+  total      Decimal          @db.Decimal(18, 4)
+  odometer   Int
+  station    String?
+  recordedAt DateTime         @default(now())
+  company    Company          @relation(fields: [companyId], references: [id])
+  vehicle    TransportVehicle @relation(fields: [vehicleId], references: [id])
+  driver     TransportDriver? @relation(fields: [driverId], references: [id])
+
+  @@index([companyId, recordedAt])
+  @@index([companyId, vehicleId])
+}
+
+model TransportTire {
+  id          String            @id @default(cuid())
+  companyId   String
+  code        String
+  brand       String
+  position    String?
+  status      String            @default("Disponible")
+  vehicleId   String?
+  productId   String?
+  treadMm     Decimal?          @db.Decimal(18, 4)
+  pressurePsi Decimal?          @db.Decimal(18, 4)
+  cost        Decimal           @default(0) @db.Decimal(18, 4)
+  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime          @default(now())
+  company     Company           @relation(fields: [companyId], references: [id])
+  vehicle     TransportVehicle? @relation(fields: [vehicleId], references: [id])
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+}
+
+model TransportTripExpense {
+  id        String            @id @default(cuid())
+  companyId String
+  orderId   String?
+  vehicleId String?
+  driverId  String?
+  category  String
+  amount    Decimal           @db.Decimal(18, 4)
+  notes     String?
+  createdAt DateTime          @default(now())
+  company   Company           @relation(fields: [companyId], references: [id])
+  order     TransportOrder?   @relation(fields: [orderId], references: [id])
+  vehicle   TransportVehicle? @relation(fields: [vehicleId], references: [id])
+  driver    TransportDriver?  @relation(fields: [driverId], references: [id])
+
+  @@index([companyId, createdAt])
+}
+
+model TransportTripAdvance {
+  id            String           @id @default(cuid())
+  companyId     String
+  orderId       String?
+  driverId      String?
+  amount        Decimal          @db.Decimal(18, 4)
+  status        String           @default("Abierto")
+  settledAmount Decimal          @default(0) @db.Decimal(18, 4)
+  createdAt     DateTime         @default(now())
+  settledAt     DateTime?
+  company       Company          @relation(fields: [companyId], references: [id])
+  order         TransportOrder?  @relation(fields: [orderId], references: [id])
+  driver        TransportDriver? @relation(fields: [driverId], references: [id])
+
+  @@index([companyId, createdAt])
+}
+
+model TransportChecklist {
+  id        String           @id @default(cuid())
+  companyId String
+  vehicleId String
+  driverId  String?
+  type      String           @default("Preoperacional")
+  result    String           @default("Aprobado")
+  items     Json?
+  createdAt DateTime         @default(now())
+  company   Company          @relation(fields: [companyId], references: [id])
+  vehicle   TransportVehicle @relation(fields: [vehicleId], references: [id])
+  driver    TransportDriver? @relation(fields: [driverId], references: [id])
+
+  @@index([companyId, createdAt])
 }
 
 model PhysicalInventory {

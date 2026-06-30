@@ -33,7 +33,10 @@ const roleDefinitions = [
 async function main() {
   const company = await prisma.company.upsert({
     where: { taxId: "900000000-1" },
-    update: {},
+    update: {
+      inventoryModuleEnabled: true,
+      transportModuleEnabled: true,
+    },
     create: {
       name: "Empresa Demo Nexora",
       taxId: "900000000-1",
@@ -41,6 +44,8 @@ async function main() {
       city: "Bogota",
       country: "Colombia",
       currency: "COP",
+      inventoryModuleEnabled: true,
+      transportModuleEnabled: true,
     },
   });
 
@@ -71,14 +76,29 @@ async function main() {
   const adminRole = await prisma.role.findFirstOrThrow({ where: { companyId: company.id, name: "Superadministrador" } });
 
   await prisma.user.upsert({
-    where: { email: "admin@inventra360.local" },
+    where: { email: "admin@nexora.local" },
     update: { roleId: adminRole.id, status: "ACTIVE" },
     create: {
       companyId: company.id,
       firstName: "Admin",
       lastName: "Nexora",
-      email: "admin@inventra360.local",
+      email: "admin@nexora.local",
       passwordHash: await bcrypt.hash("Admin12345!", 12),
+      roleId: adminRole.id,
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "ingnataly@gmail.com" },
+    update: { roleId: adminRole.id, status: "ACTIVE", position: "Ingeniera" },
+    create: {
+      companyId: company.id,
+      firstName: "Nataly",
+      lastName: "Ingeniera",
+      email: "ingnataly@gmail.com",
+      passwordHash: await bcrypt.hash("Nexora2026!", 12),
+      position: "Ingeniera",
       roleId: adminRole.id,
       status: "ACTIVE",
     },

@@ -40,7 +40,7 @@ export function LoginForm() {
         <span className="text-sm font-medium text-slate-700">Correo</span>
         <span className="mt-1 flex h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-100">
           <Mail className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <input name="email" type="email" autoComplete="email" required className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="admin@inventra360.local" />
+          <input name="email" type="email" autoComplete="email" required className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" placeholder="admin@nexora.local" />
         </span>
       </label>
 

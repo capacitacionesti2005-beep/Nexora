@@ -21,5 +21,6 @@ export const config = {
     "/users/:path*",
     "/settings/:path*",
     "/audit/:path*",
+    "/transport/:path*",
   ],
 };

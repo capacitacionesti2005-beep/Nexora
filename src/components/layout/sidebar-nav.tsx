@@ -6,6 +6,9 @@ import {
   Barcode,
   Boxes,
   ClipboardCheck,
+  Bot,
+  CircleDollarSign,
+  CreditCard,
   FileDown,
   Gauge,
   History,
@@ -20,10 +23,14 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Route,
+  RadioTower,
+  Smartphone,
   Truck,
   Upload,
   Users,
   Warehouse,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -33,66 +40,109 @@ type NavItem = {
   label: string;
   description: string;
   icon: LucideIcon;
+  external?: boolean;
 };
 
-const sections: Array<{ title: string; items: NavItem[] }> = [
-  {
-    title: "Centro de control",
-    items: [
-      { href: "/dashboard", label: "Dashboard", description: "KPIs y alertas", icon: Gauge },
-      { href: "/scanner", label: "Escaneo rapido", description: "Codigos y QR", icon: Barcode },
-      { href: "/stock", label: "Stock", description: "Saldos actuales", icon: Boxes },
-      { href: "/stock/kardex", label: "Kardex", description: "Trazabilidad", icon: History },
-    ],
-  },
-  {
-    title: "Inventario",
-    items: [
-      { href: "/products", label: "Productos", description: "Referencias y fotos", icon: Package },
-      { href: "/warehouses", label: "Bodegas", description: "Centros operativos", icon: Warehouse },
-      { href: "/locations", label: "Ubicaciones", description: "QR y mapa fisico", icon: MapPin },
-      { href: "/physical-inventory", label: "Inventario fisico", description: "Conteos y diferencias", icon: ClipboardCheck },
-    ],
-  },
-  {
-    title: "Movimientos",
-    items: [
-      { href: "/movements/entries", label: "Entradas", description: "Compras y ajustes +", icon: PackagePlus },
-      { href: "/movements/outputs", label: "Salidas", description: "Consumos y despachos", icon: PackageMinus },
-      { href: "/movements/transfers", label: "Transferencias", description: "Entre bodegas", icon: Repeat2 },
-      { href: "/movements/adjustments", label: "Ajustes", description: "Correcciones auditadas", icon: PackageCheck },
-    ],
-  },
-  {
-    title: "Planeacion",
-    items: [
-      { href: "/suppliers", label: "Proveedores", description: "Abastecimiento", icon: Truck },
-      { href: "/replenishment", label: "Pedido sugerido", description: "Maximos y minimos", icon: ShoppingCart },
-      { href: "/imports", label: "Carga masiva", description: "Plantillas flexibles", icon: Upload },
-      { href: "/reports", label: "Reportes", description: "Inventario y movimientos", icon: FileDown },
-    ],
-  },
-  {
+function buildSections({
+  inventoryModuleEnabled,
+  transportModuleEnabled,
+}: {
+  inventoryModuleEnabled: boolean;
+  transportModuleEnabled: boolean;
+}): Array<{ title: string; items: NavItem[] }> {
+  const sections: Array<{ title: string; items: NavItem[] }> = [];
+
+  if (inventoryModuleEnabled) {
+    sections.push(
+      {
+        title: "Centro de control",
+        items: [
+          { href: "/dashboard", label: "Dashboard", description: "KPIs y alertas", icon: Gauge },
+          { href: "/scanner", label: "Escaneo rapido", description: "Codigos y QR", icon: Barcode },
+          { href: "/stock", label: "Stock", description: "Saldos actuales", icon: Boxes },
+          { href: "/stock/kardex", label: "Kardex", description: "Trazabilidad", icon: History },
+        ],
+      },
+      {
+        title: "Inventario",
+        items: [
+          { href: "/products", label: "Productos", description: "Referencias y fotos", icon: Package },
+          { href: "/warehouses", label: "Bodegas", description: "Centros operativos", icon: Warehouse },
+          { href: "/locations", label: "Ubicaciones", description: "QR y mapa fisico", icon: MapPin },
+          { href: "/physical-inventory", label: "Inventario fisico", description: "Conteos y diferencias", icon: ClipboardCheck },
+        ],
+      },
+      {
+        title: "Movimientos",
+        items: [
+          { href: "/movements/entries", label: "Entradas", description: "Compras y ajustes +", icon: PackagePlus },
+          { href: "/movements/outputs", label: "Salidas", description: "Consumos y despachos", icon: PackageMinus },
+          { href: "/movements/transfers", label: "Transferencias", description: "Entre bodegas", icon: Repeat2 },
+          { href: "/movements/adjustments", label: "Ajustes", description: "Correcciones auditadas", icon: PackageCheck },
+        ],
+      },
+      {
+        title: "Planeacion",
+        items: [
+          { href: "/suppliers", label: "Proveedores", description: "Abastecimiento", icon: Truck },
+          { href: "/replenishment", label: "Pedido sugerido", description: "Maximos y minimos", icon: ShoppingCart },
+          { href: "/imports", label: "Carga masiva", description: "Plantillas flexibles", icon: Upload },
+          { href: "/reports", label: "Reportes", description: "Inventario y movimientos", icon: FileDown },
+        ],
+      },
+    );
+  }
+
+  if (transportModuleEnabled) {
+    sections.push({
+      title: "Transporte",
+      items: [
+        { href: "/transport", label: "Ejecutivo", description: "KPIs y control", icon: Gauge },
+        { href: "/transport/control", label: "Torre control", description: "Mapa y excepciones", icon: RadioTower },
+        { href: "/transport/orders", label: "Ordenes", description: "Despacho y POD", icon: ClipboardCheck },
+        { href: "/transport/fleet", label: "Flota", description: "Vehiculos y activos", icon: Truck },
+        { href: "/transport/drivers", label: "Conductores", description: "Turnos y seguridad", icon: Users },
+        { href: "/transport/routes", label: "Rutas", description: "Planeacion y ETA", icon: Route },
+        { href: "/transport/maintenance", label: "Mantenimiento", description: "Taller y checklist", icon: Wrench },
+        { href: "/transport/costs", label: "Costos de flota", description: "Combustible y llantas", icon: CircleDollarSign },
+        { href: "/transport/finance", label: "Finanzas", description: "Rentabilidad", icon: CreditCard },
+        { href: "/transport/analytics", label: "Analitica IA", description: "Predicciones", icon: Bot },
+        { href: "/transport/driver", label: "Conductor", description: "POD movil", icon: Smartphone },
+        { href: "/transport/integrations", label: "Integraciones", description: "GPS, ERP e inventario", icon: Settings },
+      ],
+    });
+  }
+
+  sections.push({
     title: "Parametrizacion",
     items: [
-      { href: "/categories", label: "Categorias", description: "Familias de producto", icon: Layers3 },
-      { href: "/units", label: "Unidades", description: "Medidas y tipos", icon: Ruler },
+      ...(inventoryModuleEnabled ? [
+        { href: "/categories", label: "Categorias", description: "Familias de producto", icon: Layers3 },
+        { href: "/units", label: "Unidades", description: "Medidas y tipos", icon: Ruler },
+      ] : []),
       { href: "/users", label: "Usuarios", description: "Accesos operativos", icon: Users },
       { href: "/users/roles", label: "Roles", description: "Permisos base", icon: ShieldCheck },
       { href: "/settings", label: "Configuracion", description: "Empresa y tema", icon: Settings },
       { href: "/audit", label: "Auditoria", description: "Bitacora del sistema", icon: History },
     ],
-  },
-];
+  });
+
+  return sections;
+}
 
 export function SidebarNav({
   variant = "sidebar",
   collapsed = false,
+  inventoryModuleEnabled = true,
+  transportModuleEnabled = false,
 }: {
   variant?: "sidebar" | "mobile";
   collapsed?: boolean;
+  inventoryModuleEnabled?: boolean;
+  transportModuleEnabled?: boolean;
 }) {
   const pathname = usePathname();
+  const sections = buildSections({ inventoryModuleEnabled, transportModuleEnabled });
 
   if (variant === "mobile") {
     const items = sections.flatMap((section) => section.items);
@@ -101,12 +151,14 @@ export function SidebarNav({
       <nav className="flex gap-2 overflow-x-auto bg-[#202b3a] px-3 py-3">
         {items.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive = item.href === "/transport" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
               key={item.href}
               href={item.href}
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noreferrer" : undefined}
               className={cn(
                 "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition",
                 isActive ? "bg-[#101827] text-cyan-300 shadow-sm" : "text-slate-300 hover:bg-white/5 hover:text-white",
@@ -136,12 +188,14 @@ export function SidebarNav({
           <div className={cn("space-y-1", collapsed && "space-y-2")}>
             {section.items.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = item.href === "/transport" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noreferrer" : undefined}
                   aria-current={isActive ? "page" : undefined}
                   title={collapsed ? `${item.label} - ${item.description}` : undefined}
                   className={cn(

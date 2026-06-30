@@ -11,13 +11,15 @@ function themePreference(value?: string) {
 export default async function PrivateLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
   const cookieStore = await cookies();
-  const userTheme = themePreference(cookieStore.get("inventra360-theme")?.value);
+  const userTheme = themePreference(cookieStore.get("nexora-theme")?.value);
   const company = await prisma.company.findUniqueOrThrow({
     where: { id: user.companyId },
     select: {
       uiTheme: true,
       uiDensity: true,
       accentColor: true,
+      inventoryModuleEnabled: true,
+      transportModuleEnabled: true,
     },
   });
 
@@ -28,6 +30,8 @@ export default async function PrivateLayout({ children }: { children: ReactNode 
         theme: userTheme ?? company.uiTheme,
         density: company.uiDensity,
         accentColor: company.accentColor,
+        inventoryModuleEnabled: company.inventoryModuleEnabled,
+        transportModuleEnabled: company.transportModuleEnabled,
       }}
     >
       {children}
