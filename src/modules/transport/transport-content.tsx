@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -438,16 +438,47 @@ const customerPerformance = [
 ];
 
 const mapVehicles = [
-  { plate: "TRK-482", x: 38, y: 44, status: "En ruta" as VehicleStatus, route: "R-18", eta: "15:42" },
-  { plate: "VAN-221", x: 58, y: 29, status: "En ruta" as VehicleStatus, route: "R-24", eta: "14:20" },
-  { plate: "TRK-615", x: 29, y: 62, status: "En patio" as VehicleStatus, route: "R-31", eta: "17:10" },
-  { plate: "TRK-308", x: 68, y: 58, status: "Detenido" as VehicleStatus, route: "R-31", eta: "16:35" },
+  { plate: "TRK-482", position: [4.735, -74.104] as [number, number], status: "En ruta" as VehicleStatus, route: "R-18", eta: "15:42" },
+  { plate: "VAN-221", position: [4.639, -74.084] as [number, number], status: "En ruta" as VehicleStatus, route: "R-24", eta: "14:20" },
+  { plate: "TRK-615", position: [4.711, -74.214] as [number, number], status: "En patio" as VehicleStatus, route: "R-31", eta: "17:10" },
+  { plate: "TRK-308", position: [4.815, -74.098] as [number, number], status: "Detenido" as VehicleStatus, route: "R-31", eta: "16:35" },
 ];
 
-const realMapTiles = [
-  ["https://tile.openstreetmap.org/12/1204/1993.png", "https://tile.openstreetmap.org/12/1205/1993.png", "https://tile.openstreetmap.org/12/1206/1993.png"],
-  ["https://tile.openstreetmap.org/12/1204/1994.png", "https://tile.openstreetmap.org/12/1205/1994.png", "https://tile.openstreetmap.org/12/1206/1994.png"],
-  ["https://tile.openstreetmap.org/12/1204/1995.png", "https://tile.openstreetmap.org/12/1205/1995.png", "https://tile.openstreetmap.org/12/1206/1995.png"],
+const mapRoutes = [
+  {
+    id: "R-18",
+    color: "#0f766e",
+    label: "Bogota Occidente",
+    points: [
+      [4.741, -74.166],
+      [4.735, -74.136],
+      [4.728, -74.112],
+      [4.741, -74.084],
+    ] as Array<[number, number]>,
+  },
+  {
+    id: "R-24",
+    color: "#2563eb",
+    label: "Norte cadena de frio",
+    points: [
+      [4.660, -74.142],
+      [4.646, -74.118],
+      [4.632, -74.091],
+      [4.624, -74.064],
+    ] as Array<[number, number]>,
+  },
+  {
+    id: "R-31",
+    color: "#dc2626",
+    label: "Sabana industrial",
+    points: [
+      [4.711, -74.214],
+      [4.704, -74.176],
+      [4.690, -74.145],
+      [4.675, -74.120],
+      [4.620, -74.124],
+    ] as Array<[number, number]>,
+  },
 ];
 
 const dailyPerformance = [
@@ -1079,62 +1110,71 @@ function AlertList({ items, onResolve }: { items: Alert[]; onResolve?: (alert: A
 }
 
 function OperationalMap() {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let map: import("leaflet").Map | undefined;
+    let isDisposed = false;
+
+    async function mountMap() {
+      const L = await import("leaflet");
+      if (isDisposed || !mapContainerRef.current) return;
+
+      mapContainerRef.current.innerHTML = "";
+      map = L.map(mapContainerRef.current, {
+        attributionControl: true,
+        scrollWheelZoom: true,
+        zoomControl: true,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+
+      for (const route of mapRoutes) {
+        L.polyline(route.points, {
+          color: route.color,
+          opacity: 0.92,
+          weight: 5,
+        })
+          .bindTooltip(`${route.id} - ${route.label}`)
+          .addTo(map);
+      }
+
+      for (const vehicle of mapVehicles) {
+        const color = vehicle.status === "En ruta" ? "#0e7490" : vehicle.status === "En patio" ? "#047857" : "#be123c";
+        L.marker(vehicle.position, {
+          icon: L.divIcon({
+            className: "",
+            html: `<span style="display:inline-flex;align-items:center;gap:4px;border:2px solid #fff;border-radius:999px;background:${color};color:#fff;padding:4px 8px;font-size:11px;font-weight:900;box-shadow:0 8px 20px rgba(15,23,42,.28);white-space:nowrap;">${vehicle.plate}</span>`,
+            iconAnchor: [30, 12],
+          }),
+        })
+          .bindPopup(`<strong>${vehicle.plate}</strong><br/>${vehicle.route}<br/>${vehicle.status}<br/>ETA ${vehicle.eta}`)
+          .addTo(map);
+      }
+
+      const allPoints = [...mapRoutes.flatMap((route) => route.points), ...mapVehicles.map((vehicle) => vehicle.position)];
+      map.fitBounds(L.latLngBounds(allPoints), { padding: [28, 28] });
+      window.setTimeout(() => map?.invalidateSize(), 80);
+    }
+
+    void mountMap();
+
+    return () => {
+      isDisposed = true;
+      map?.remove();
+    };
+  }, []);
+
   return (
     <div className="relative h-[420px] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-inner">
-      <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
-        {realMapTiles.flatMap((row, rowIndex) =>
-          row.map((src, columnIndex) => (
-            <img
-              key={`${rowIndex}-${columnIndex}`}
-              src={src}
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-cover"
-              draggable={false}
-            />
-          )),
-        )}
-      </div>
-      <div className="absolute inset-0 bg-slate-950/5" />
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Rutas activas sobre mapa real" className="absolute inset-0 h-full w-full">
-        <path d="M36 45 C42 40, 51 35, 59 30" fill="none" stroke="#0f766e" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="2 2" />
-        <path d="M34 49 C43 54, 53 58, 65 59" fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="2 2" />
-        <path d="M30 62 C42 58, 55 52, 68 58" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2" />
-      </svg>
-      <div className="absolute left-4 top-4 flex overflow-hidden rounded-md border border-slate-300 bg-white text-xs font-black shadow-sm">
-        <button type="button" className="border-r border-slate-200 px-3 py-2 text-slate-700">OSM</button>
-        <button type="button" className="px-3 py-2 text-slate-500">Bogota D.C.</button>
-      </div>
-      <div className="absolute right-4 top-4 grid gap-2">
-        <button type="button" className="h-8 w-8 rounded-md border border-slate-300 bg-white text-lg font-black text-slate-700 shadow-sm">+</button>
-        <button type="button" className="h-8 w-8 rounded-md border border-slate-300 bg-white text-lg font-black text-slate-700 shadow-sm">-</button>
-      </div>
-      <div className="absolute left-[12%] top-[17%] rounded-md border border-cyan-200 bg-white/95 px-3 py-1 text-xs font-bold text-cyan-700 shadow-sm">Zona norte</div>
-      <div className="absolute bottom-[18%] left-[45%] rounded-md border border-emerald-200 bg-white/95 px-3 py-1 text-xs font-bold text-emerald-700 shadow-sm">Cedi Funza</div>
-      <div className="absolute right-[14%] top-[37%] rounded-md border border-amber-200 bg-white/95 px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">Calle 80</div>
-      {mapVehicles.map((vehicle) => {
-        const isMoving = vehicle.status === "En ruta";
-        const isYard = vehicle.status === "En patio";
-        return (
-          <button
-            key={vehicle.plate}
-            type="button"
-            className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border-2 border-white px-2.5 py-1 text-xs font-black text-white shadow-lg ${isMoving ? "bg-cyan-700" : isYard ? "bg-emerald-700" : "bg-rose-700"}`}
-            style={{ left: `${vehicle.x}%`, top: `${vehicle.y}%` }}
-            title={`${vehicle.plate} - ${vehicle.route} - ETA ${vehicle.eta}`}
-          >
-            <Navigation className="h-3 w-3" />
-            {vehicle.plate}
-          </button>
-        );
-      })}
+      <div ref={mapContainerRef} className="h-full w-full" />
       <div className="absolute bottom-4 left-4 flex flex-wrap gap-2 rounded-md border border-slate-200 bg-white/95 p-2 text-xs font-bold text-slate-600 shadow-sm">
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-cyan-700" /> En ruta</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-700" /> En patio</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-700" /> Novedad</span>
-      </div>
-      <div className="absolute bottom-4 right-4 rounded bg-white/95 px-2 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
-        © OpenStreetMap contributors
       </div>
     </div>
   );
