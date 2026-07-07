@@ -444,6 +444,12 @@ const mapVehicles = [
   { plate: "TRK-308", x: 68, y: 58, status: "Detenido" as VehicleStatus, route: "R-31", eta: "16:35" },
 ];
 
+const realMapTiles = [
+  ["https://tile.openstreetmap.org/12/1204/1993.png", "https://tile.openstreetmap.org/12/1205/1993.png", "https://tile.openstreetmap.org/12/1206/1993.png"],
+  ["https://tile.openstreetmap.org/12/1204/1994.png", "https://tile.openstreetmap.org/12/1205/1994.png", "https://tile.openstreetmap.org/12/1206/1994.png"],
+  ["https://tile.openstreetmap.org/12/1204/1995.png", "https://tile.openstreetmap.org/12/1205/1995.png", "https://tile.openstreetmap.org/12/1206/1995.png"],
+];
+
 const dailyPerformance = [
   { name: "Lun", entregas: 940, costo: 42, otif: 94 },
   { name: "Mar", entregas: 1120, costo: 39, otif: 95 },
@@ -1074,24 +1080,30 @@ function AlertList({ items, onResolve }: { items: Alert[]; onResolve?: (alert: A
 
 function OperationalMap() {
   return (
-    <div className="relative h-[420px] overflow-hidden rounded-lg border border-slate-200 bg-[#eef3ed] shadow-inner">
-      <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(148,163,184,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.16)_1px,transparent_1px)] bg-[size:42px_42px]" />
-      <div className="absolute left-[3%] top-[4%] h-[32%] w-[30%] rounded-3xl bg-emerald-100/70" />
-      <div className="absolute bottom-[5%] right-[6%] h-[34%] w-[28%] rounded-3xl bg-cyan-100/70" />
-      <div className="absolute left-[55%] top-[9%] h-[18%] w-[24%] rounded-2xl bg-amber-100/70" />
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
-        <path d="M-5 30 C16 25, 28 29, 43 42 S76 55, 108 47" fill="none" stroke="#f8fafc" strokeWidth="8" strokeLinecap="round" />
-        <path d="M-5 30 C16 25, 28 29, 43 42 S76 55, 108 47" fill="none" stroke="#94a3b8" strokeWidth="1.1" strokeDasharray="4 3" />
-        <path d="M11 100 C18 73, 31 58, 48 50 S71 34, 79 -6" fill="none" stroke="#f8fafc" strokeWidth="7" strokeLinecap="round" />
-        <path d="M11 100 C18 73, 31 58, 48 50 S71 34, 79 -6" fill="none" stroke="#94a3b8" strokeWidth="1" strokeDasharray="4 3" />
-        <path d="M8 70 C27 60, 44 67, 62 56 S84 41, 96 62" fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
-        <path d="M8 70 C27 60, 44 67, 62 56 S84 41, 96 62" fill="none" stroke="#cbd5e1" strokeWidth="0.9" />
-        <path d="M37 44 C47 39, 58 35, 69 28" fill="none" stroke="#0f766e" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2" />
-        <path d="M34 49 C42 55, 53 58, 64 59" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2" />
+    <div className="relative h-[420px] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-inner">
+      <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+        {realMapTiles.flatMap((row, rowIndex) =>
+          row.map((src, columnIndex) => (
+            <img
+              key={`${rowIndex}-${columnIndex}`}
+              src={src}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          )),
+        )}
+      </div>
+      <div className="absolute inset-0 bg-slate-950/5" />
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Rutas activas sobre mapa real" className="absolute inset-0 h-full w-full">
+        <path d="M36 45 C42 40, 51 35, 59 30" fill="none" stroke="#0f766e" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="2 2" />
+        <path d="M34 49 C43 54, 53 58, 65 59" fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="2 2" />
+        <path d="M30 62 C42 58, 55 52, 68 58" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 2" />
       </svg>
       <div className="absolute left-4 top-4 flex overflow-hidden rounded-md border border-slate-300 bg-white text-xs font-black shadow-sm">
-        <button type="button" className="border-r border-slate-200 px-3 py-2 text-slate-700">Mapa</button>
-        <button type="button" className="px-3 py-2 text-slate-500">Satelite</button>
+        <button type="button" className="border-r border-slate-200 px-3 py-2 text-slate-700">OSM</button>
+        <button type="button" className="px-3 py-2 text-slate-500">Bogota D.C.</button>
       </div>
       <div className="absolute right-4 top-4 grid gap-2">
         <button type="button" className="h-8 w-8 rounded-md border border-slate-300 bg-white text-lg font-black text-slate-700 shadow-sm">+</button>
@@ -1120,6 +1132,9 @@ function OperationalMap() {
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-cyan-700" /> En ruta</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-700" /> En patio</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-700" /> Novedad</span>
+      </div>
+      <div className="absolute bottom-4 right-4 rounded bg-white/95 px-2 py-1 text-[10px] font-bold text-slate-500 shadow-sm">
+        © OpenStreetMap contributors
       </div>
     </div>
   );
