@@ -62,9 +62,10 @@ import { registerVehicleComponentEvent, runVehicleComponentQuickAction } from "@
 
 type Severity = "critical" | "warning" | "success" | "info";
 type OrderStatus = "Planificada" | "Asignada" | "En ruta" | "En riesgo" | "Entregada" | "Incidencia";
-type VehicleStatus = "Disponible" | "En ruta" | "Mantenimiento" | "Detenido";
+type VehicleStatus = "En patio" | "En ruta" | "Mantenimiento" | "Detenido";
 type DriverStatus = "Disponible" | "En turno" | "Descanso" | "Bloqueado";
 type ViewId = "dashboard" | "control" | "orders" | "fleet" | "drivers" | "routes" | "maintenance" | "costs" | "finance" | "analytics" | "integrations" | "driver";
+type PeriodId = "today" | "month" | "year";
 
 export type TransportModule = {
   id: ViewId;
@@ -349,8 +350,8 @@ const initialData: AppData = {
   fleet: [
     { plate: "TRK-482", type: "Turbo 4.5T", status: "En ruta", capacity: "4.5 ton", utilization: 91, health: 72, nextService: "620 km", zone: "Occidente", speed: 48 },
     { plate: "VAN-221", type: "Van refrigerada", status: "En ruta", capacity: "1.2 ton", utilization: 64, health: 58, nextService: "120 km", zone: "Norte", speed: 36 },
-    { plate: "TRK-615", type: "Sencillo 8T", status: "Disponible", capacity: "8 ton", utilization: 12, health: 94, nextService: "2,400 km", zone: "Cedi Funza", speed: 0 },
-    { plate: "FUR-009", type: "Furgon", status: "Disponible", capacity: "2 ton", utilization: 18, health: 88, nextService: "1,980 km", zone: "Sur", speed: 0 },
+    { plate: "TRK-615", type: "Sencillo 8T", status: "En patio", capacity: "8 ton", utilization: 12, health: 94, nextService: "2,400 km", zone: "Cedi Funza", speed: 0 },
+    { plate: "FUR-009", type: "Furgon", status: "En patio", capacity: "2 ton", utilization: 18, health: 88, nextService: "1,980 km", zone: "Sur", speed: 0 },
     { plate: "TRK-308", type: "Patineta 32T", status: "Detenido", capacity: "32 ton", utilization: 74, health: 67, nextService: "840 km", zone: "Cota", speed: 0 },
   ],
   drivers: [
@@ -398,10 +399,48 @@ const routePlans = [
   { id: "R-45", name: "Sur retail", stops: 37, distance: 171, emptyKm: 11, otif: 95, cost: "$13.6M", restriction: "Muelles saturados" },
 ];
 
+const todayRoutes = [
+  { id: "R-18", window: "06:00 - 14:00", customer: "Alimentos Norte", vehicle: "TRK-482", driver: "Laura Pardo", status: "En ruta", stopsDone: 26, stopsTotal: 42, eta: "15:42", risk: "Congestion Calle 80" },
+  { id: "R-24", window: "05:30 - 13:30", customer: "Farmalog", vehicle: "VAN-221", driver: "Diego Ruiz", status: "En ruta", stopsDone: 24, stopsTotal: 31, eta: "14:20", risk: "Temperatura por validar" },
+  { id: "R-31", window: "10:00 - 18:00", customer: "Retail Max", vehicle: "TRK-615", driver: "Mariana Leon", status: "En patio", stopsDone: 0, stopsTotal: 56, eta: "17:10", risk: "Esperando cargue" },
+  { id: "R-45", window: "07:00 - 15:00", customer: "AgroAndes", vehicle: "FUR-009", driver: "Samuel Rojas", status: "Entregada", stopsDone: 37, stopsTotal: 37, eta: "12:05", risk: "Sin novedad" },
+];
+
+const routePerformance = {
+  today: [
+    { name: "R-18", entregas: 42, otif: 96, costoKm: 4180, kmVacios: 14 },
+    { name: "R-24", entregas: 31, otif: 98, costoKm: 3920, kmVacios: 8 },
+    { name: "R-31", entregas: 56, otif: 94, costoKm: 4360, kmVacios: 19 },
+    { name: "R-45", entregas: 37, otif: 95, costoKm: 4070, kmVacios: 11 },
+  ],
+  month: [
+    { name: "Sem 1", entregas: 5840, otif: 94, costoKm: 4310, kmVacios: 15 },
+    { name: "Sem 2", entregas: 6210, otif: 95, costoKm: 4240, kmVacios: 13 },
+    { name: "Sem 3", entregas: 6488, otif: 97, costoKm: 4110, kmVacios: 10 },
+    { name: "Sem 4", entregas: 6024, otif: 96, costoKm: 4180, kmVacios: 11 },
+  ],
+  year: [
+    { name: "Ene", entregas: 18240, otif: 93, costoKm: 4450, kmVacios: 16 },
+    { name: "Feb", entregas: 19680, otif: 94, costoKm: 4380, kmVacios: 15 },
+    { name: "Mar", entregas: 21440, otif: 95, costoKm: 4290, kmVacios: 13 },
+    { name: "Abr", entregas: 22620, otif: 96, costoKm: 4210, kmVacios: 12 },
+    { name: "May", entregas: 23860, otif: 96, costoKm: 4180, kmVacios: 11 },
+    { name: "Jun", entregas: 24562, otif: 97, costoKm: 4090, kmVacios: 10 },
+  ],
+} satisfies Record<PeriodId, Array<{ name: string; entregas: number; otif: number; costoKm: number; kmVacios: number }>>;
+
+const customerPerformance = [
+  { customer: "Alimentos Norte", orders: 284, otif: 96, revenue: "$318M", incidents: 4, trend: "+6%" },
+  { customer: "Farmalog", orders: 198, otif: 98, revenue: "$221M", incidents: 2, trend: "+11%" },
+  { customer: "Retail Max", orders: 342, otif: 94, revenue: "$402M", incidents: 9, trend: "+3%" },
+  { customer: "AgroAndes", orders: 156, otif: 95, revenue: "$144M", incidents: 3, trend: "-1%" },
+  { customer: "TecnoPartes", orders: 124, otif: 91, revenue: "$119M", incidents: 8, trend: "-4%" },
+];
+
 const mapVehicles = [
   { plate: "TRK-482", x: 38, y: 44, status: "En ruta" as VehicleStatus, route: "R-18", eta: "15:42" },
   { plate: "VAN-221", x: 58, y: 29, status: "En ruta" as VehicleStatus, route: "R-24", eta: "14:20" },
-  { plate: "TRK-615", x: 29, y: 62, status: "Disponible" as VehicleStatus, route: "R-31", eta: "17:10" },
+  { plate: "TRK-615", x: 29, y: 62, status: "En patio" as VehicleStatus, route: "R-31", eta: "17:10" },
   { plate: "TRK-308", x: 68, y: 58, status: "Detenido" as VehicleStatus, route: "R-31", eta: "16:35" },
 ];
 
@@ -412,15 +451,6 @@ const dailyPerformance = [
   { name: "Jue", entregas: 1236, costo: 37, otif: 97 },
   { name: "Vie", entregas: 1284, costo: 36, otif: 97 },
   { name: "Sab", entregas: 860, costo: 41, otif: 95 },
-];
-
-const demandForecast = [
-  { name: "06:00", demanda: 180, real: 172 },
-  { name: "09:00", demanda: 320, real: 338 },
-  { name: "12:00", demanda: 410, real: 398 },
-  { name: "15:00", demanda: 520, real: 544 },
-  { name: "18:00", demanda: 460, real: 431 },
-  { name: "21:00", demanda: 260, real: 248 },
 ];
 
 const costBreakdown = [
@@ -539,7 +569,7 @@ function AtlasTransportClient({ viewId, suiteEnabled = true }: { viewId: ViewId;
     const plate = `TRK-${Math.floor(700 + Math.random() * 200)}`;
     setData((current) => ({
       ...current,
-      fleet: [{ plate, type: "Turbo urbano", status: "Disponible", capacity: "3.5 ton", utilization: 0, health: 100, nextService: "2,500 km", zone: "Base principal", speed: 0 }, ...current.fleet],
+      fleet: [{ plate, type: "Turbo urbano", status: "En patio", capacity: "3.5 ton", utilization: 0, health: 100, nextService: "2,500 km", zone: "Base principal", speed: 0 }, ...current.fleet],
     }));
     pushActivity(`Vehiculo ${plate} registrado`);
   };
@@ -721,9 +751,21 @@ function OrdersView({ orders, onCreateOrder, onConfirmPod, onExport, onUpdateOrd
 }
 
 function FleetView({ fleet, onRegisterVehicle, onUpdateVehicleStatus }: { fleet: Vehicle[]; onRegisterVehicle: () => void; onUpdateVehicleStatus: (vehicle: Vehicle, status: VehicleStatus) => void }) {
+  const fleetStats = [
+    { label: "En ruta", value: fleet.filter((vehicle) => vehicle.status === "En ruta").length.toString(), detail: "Vehiculos despachados", severity: "info" as const },
+    { label: "En patio", value: fleet.filter((vehicle) => vehicle.status === "En patio").length.toString(), detail: "Disponibles para despacho", severity: "success" as const },
+    { label: "Mantenimiento", value: fleet.filter((vehicle) => vehicle.status === "Mantenimiento").length.toString(), detail: "En taller o preventivo", severity: "warning" as const },
+    { label: "Detenidos", value: fleet.filter((vehicle) => vehicle.status === "Detenido").length.toString(), detail: "Bloqueados por novedad", severity: "critical" as const },
+  ];
+
   return (
     <div className="space-y-5">
       <Toolbar title="Flota y activos" primary="Registrar vehiculo" onPrimary={onRegisterVehicle} />
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {fleetStats.map((stat) => (
+          <KpiCard key={stat.label} kpi={{ label: stat.label, value: stat.value, delta: stat.detail, target: "Estado actual", severity: stat.severity }} />
+        ))}
+      </section>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {fleet.map((vehicle) => (
           <VehicleCard
@@ -756,19 +798,68 @@ function DriversView({ drivers, activity }: { drivers: Driver[]; activity: Activ
 }
 
 function RoutesView() {
+  const [period, setPeriod] = useState<PeriodId>("month");
+  const performance = routePerformance[period];
+  const totals = {
+    routesToday: todayRoutes.length,
+    inRoute: todayRoutes.filter((route) => route.status === "En ruta").length,
+    inYard: todayRoutes.filter((route) => route.status === "En patio").length,
+    delivered: todayRoutes.filter((route) => route.status === "Entregada").length,
+  };
+
   return (
     <div className="space-y-5">
       <Toolbar title="Planeacion y optimizacion de rutas" primary="Optimizar rutas" />
+      <section className="grid gap-4 md:grid-cols-4">
+        <KpiCard kpi={{ label: "Rutas de hoy", value: totals.routesToday.toString(), delta: `${totals.inRoute} en ruta`, target: `${totals.delivered} cerradas`, severity: "info" }} />
+        <KpiCard kpi={{ label: "Vehiculos en ruta", value: totals.inRoute.toString(), delta: "Operando ahora", target: "GPS activo", severity: "success" }} />
+        <KpiCard kpi={{ label: "Vehiculos en patio", value: totals.inYard.toString(), delta: "Listos o esperando cargue", target: "Patio / base", severity: "warning" }} />
+        <KpiCard kpi={{ label: "OTIF promedio", value: `${Math.round(performance.reduce((sum, item) => sum + item.otif, 0) / performance.length)}%`, delta: periodLabel(period), target: "Meta > 95%", severity: "success" }} />
+      </section>
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <header className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-black text-slate-950">Rutas de hoy</h2>
+            <p className="mt-1 text-sm text-slate-500">Despacho operativo por ventana, cliente, conductor y avance.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge value="En ruta" />
+            <StatusBadge value="En patio" />
+            <StatusBadge value="Entregada" />
+          </div>
+        </header>
+        <DataPanel columns={["Ruta", "Ventana", "Cliente", "Vehiculo", "Conductor", "Estado", "Avance", "ETA", "Novedad"]}>
+          {todayRoutes.map((route) => (
+            <tr key={route.id}>
+              <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-950">{route.id}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{route.window}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{route.customer}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{route.vehicle}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{route.driver}</td>
+              <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={route.status} /></td>
+              <td className="min-w-36 px-4 py-3"><ProgressBar value={Math.round((route.stopsDone / route.stopsTotal) * 100)} /></td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{route.eta}</td>
+              <td className="min-w-48 px-4 py-3 text-sm text-slate-600">{route.risk}</td>
+            </tr>
+          ))}
+        </DataPanel>
+      </section>
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-        <Panel title="Demanda prevista vs real" action="Simular">
+        <Panel title={`Comportamiento de rutas - ${periodLabel(period)}`} action="Exportar">
+          <div className="mb-4 flex flex-wrap gap-2">
+            <SegmentChip active={period === "today"} onClick={() => setPeriod("today")}>Hoy</SegmentChip>
+            <SegmentChip active={period === "month"} onClick={() => setPeriod("month")}>Mensual</SegmentChip>
+            <SegmentChip active={period === "year"} onClick={() => setPeriod("year")}>Anual</SegmentChip>
+          </div>
           <ChartBox>
-            <LineChart data={demandForecast}>
+            <LineChart data={performance}>
               <CartesianGrid strokeDasharray="4 4" vertical={false} />
               <XAxis dataKey="name" tickLine={false} axisLine={false} />
               <YAxis tickLine={false} axisLine={false} />
               <Tooltip />
-              <Line type="monotone" dataKey="demanda" stroke="#2563eb" strokeWidth={3} />
-              <Line type="monotone" dataKey="real" stroke="#f59e0b" strokeWidth={3} />
+              <Line type="monotone" dataKey="entregas" stroke="#0f766e" strokeWidth={3} />
+              <Line type="monotone" dataKey="otif" stroke="#2563eb" strokeWidth={3} />
+              <Line type="monotone" dataKey="kmVacios" stroke="#f59e0b" strokeWidth={3} />
             </LineChart>
           </ChartBox>
         </Panel>
@@ -788,6 +879,20 @@ function RoutesView() {
           ))}
         </div>
       </section>
+      <Panel title="Como vamos con cada cliente" action="Descargar">
+        <DataPanel columns={["Cliente", "Ordenes", "OTIF", "Facturacion", "Incidentes", "Tendencia"]}>
+          {customerPerformance.map((customer) => (
+            <tr key={customer.customer}>
+              <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-950">{customer.customer}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.orders}</td>
+              <td className="min-w-32 px-4 py-3"><ProgressBar value={customer.otif} /></td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.revenue}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.incidents}</td>
+              <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={customer.trend.startsWith("-") ? "En riesgo" : customer.trend} /></td>
+            </tr>
+          ))}
+        </DataPanel>
+      </Panel>
     </div>
   );
 }
@@ -969,15 +1074,53 @@ function AlertList({ items, onResolve }: { items: Alert[]; onResolve?: (alert: A
 
 function OperationalMap() {
   return (
-    <div className="relative h-[360px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+    <div className="relative h-[420px] overflow-hidden rounded-lg border border-slate-200 bg-[#eef3ed] shadow-inner">
+      <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(148,163,184,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.16)_1px,transparent_1px)] bg-[size:42px_42px]" />
+      <div className="absolute left-[3%] top-[4%] h-[32%] w-[30%] rounded-3xl bg-emerald-100/70" />
+      <div className="absolute bottom-[5%] right-[6%] h-[34%] w-[28%] rounded-3xl bg-cyan-100/70" />
+      <div className="absolute left-[55%] top-[9%] h-[18%] w-[24%] rounded-2xl bg-amber-100/70" />
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
-        <path d="M8 23 C28 18, 39 35, 54 31 S83 20, 94 34" fill="none" stroke="#cbd5e1" strokeWidth="0.8" />
-        <path d="M13 72 C31 54, 48 64, 63 52 S82 45, 91 64" fill="none" stroke="#cbd5e1" strokeWidth="0.8" />
-        <path d="M20 9 C28 30, 30 50, 43 69 S68 86, 86 78" fill="none" stroke="#cbd5e1" strokeWidth="0.8" />
+        <path d="M-5 30 C16 25, 28 29, 43 42 S76 55, 108 47" fill="none" stroke="#f8fafc" strokeWidth="8" strokeLinecap="round" />
+        <path d="M-5 30 C16 25, 28 29, 43 42 S76 55, 108 47" fill="none" stroke="#94a3b8" strokeWidth="1.1" strokeDasharray="4 3" />
+        <path d="M11 100 C18 73, 31 58, 48 50 S71 34, 79 -6" fill="none" stroke="#f8fafc" strokeWidth="7" strokeLinecap="round" />
+        <path d="M11 100 C18 73, 31 58, 48 50 S71 34, 79 -6" fill="none" stroke="#94a3b8" strokeWidth="1" strokeDasharray="4 3" />
+        <path d="M8 70 C27 60, 44 67, 62 56 S84 41, 96 62" fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
+        <path d="M8 70 C27 60, 44 67, 62 56 S84 41, 96 62" fill="none" stroke="#cbd5e1" strokeWidth="0.9" />
+        <path d="M37 44 C47 39, 58 35, 69 28" fill="none" stroke="#0f766e" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2" />
+        <path d="M34 49 C42 55, 53 58, 64 59" fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="2 2" />
       </svg>
-      <div className="absolute left-[14%] top-[18%] rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700">Zona norte</div>
-      <div className="absolute bottom-[18%] left-[46%] rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Cedi Funza</div>
-      {mapVehicles.map((vehicle) => <button key={vehicle.plate} type="button" className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-white bg-slate-950 px-2 py-1 text-xs font-black text-white shadow-lg" style={{ left: `${vehicle.x}%`, top: `${vehicle.y}%` }} title={`${vehicle.plate} - ${vehicle.route} - ETA ${vehicle.eta}`}><Navigation className="h-3 w-3" />{vehicle.plate}</button>)}
+      <div className="absolute left-4 top-4 flex overflow-hidden rounded-md border border-slate-300 bg-white text-xs font-black shadow-sm">
+        <button type="button" className="border-r border-slate-200 px-3 py-2 text-slate-700">Mapa</button>
+        <button type="button" className="px-3 py-2 text-slate-500">Satelite</button>
+      </div>
+      <div className="absolute right-4 top-4 grid gap-2">
+        <button type="button" className="h-8 w-8 rounded-md border border-slate-300 bg-white text-lg font-black text-slate-700 shadow-sm">+</button>
+        <button type="button" className="h-8 w-8 rounded-md border border-slate-300 bg-white text-lg font-black text-slate-700 shadow-sm">-</button>
+      </div>
+      <div className="absolute left-[12%] top-[17%] rounded-md border border-cyan-200 bg-white/95 px-3 py-1 text-xs font-bold text-cyan-700 shadow-sm">Zona norte</div>
+      <div className="absolute bottom-[18%] left-[45%] rounded-md border border-emerald-200 bg-white/95 px-3 py-1 text-xs font-bold text-emerald-700 shadow-sm">Cedi Funza</div>
+      <div className="absolute right-[14%] top-[37%] rounded-md border border-amber-200 bg-white/95 px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">Calle 80</div>
+      {mapVehicles.map((vehicle) => {
+        const isMoving = vehicle.status === "En ruta";
+        const isYard = vehicle.status === "En patio";
+        return (
+          <button
+            key={vehicle.plate}
+            type="button"
+            className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border-2 border-white px-2.5 py-1 text-xs font-black text-white shadow-lg ${isMoving ? "bg-cyan-700" : isYard ? "bg-emerald-700" : "bg-rose-700"}`}
+            style={{ left: `${vehicle.x}%`, top: `${vehicle.y}%` }}
+            title={`${vehicle.plate} - ${vehicle.route} - ETA ${vehicle.eta}`}
+          >
+            <Navigation className="h-3 w-3" />
+            {vehicle.plate}
+          </button>
+        );
+      })}
+      <div className="absolute bottom-4 left-4 flex flex-wrap gap-2 rounded-md border border-slate-200 bg-white/95 p-2 text-xs font-bold text-slate-600 shadow-sm">
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-cyan-700" /> En ruta</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-700" /> En patio</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-700" /> Novedad</span>
+      </div>
     </div>
   );
 }
@@ -1349,7 +1492,7 @@ function vehicleFromSnapshot(snapshot: VehicleVisualSnapshot): Vehicle {
   return {
     plate: snapshot.plate,
     type: `${snapshot.type} / ${snapshot.bodyType}${snapshot.refrigerated ? " refrigerado" : ""}${snapshot.trailerType ? ` / ${snapshot.trailerType}` : ""}`,
-    status: snapshot.status === "MAINTENANCE" ? "Mantenimiento" : snapshot.status === "IN_ROUTE" ? "En ruta" : snapshot.status === "BLOCKED" ? "Detenido" : "Disponible",
+    status: snapshot.status === "MAINTENANCE" ? "Mantenimiento" : snapshot.status === "IN_ROUTE" ? "En ruta" : snapshot.status === "BLOCKED" ? "Detenido" : "En patio",
     capacity: snapshot.capacity ?? `${snapshot.wheelCount} llantas`,
     utilization: 0,
     health: snapshot.components.some((component) => component.condition === "red") ? 55 : snapshot.components.some((component) => component.condition === "yellow") ? 76 : 94,
@@ -1652,7 +1795,7 @@ function VehicleCard({
       <dl className="mt-4 grid grid-cols-3 gap-3"><Metric label="Capacidad" value={vehicle.capacity} /><Metric label="Zona" value={vehicle.zone} /><Metric label="Velocidad" value={`${vehicle.speed} km/h`} /></dl>
       <div className="mt-4 space-y-3"><span className="text-xs font-bold text-slate-500">Utilizacion</span><ProgressBar value={vehicle.utilization} /><span className="text-xs font-bold text-slate-500">Estado mecanico</span><ProgressBar value={vehicle.health} /></div>
       <footer className="mt-4 flex items-center gap-2 text-sm text-slate-500"><CalendarClock className="h-4 w-4" /> Proximo servicio: {vehicle.nextService}</footer>
-      <div className="mt-4 flex flex-wrap gap-2"><SmallLinkButton href={`/transport/fleet/${encodeURIComponent(vehicle.plate)}`}>Ver estado visual</SmallLinkButton><SmallButton onClick={() => onUpdateStatus(vehicle, "En ruta")}>En ruta</SmallButton><SmallButton onClick={() => onUpdateStatus(vehicle, "Disponible")}>Disponible</SmallButton><SmallButton onClick={() => onUpdateStatus(vehicle, "Mantenimiento")}>Taller</SmallButton></div>
+      <div className="mt-4 flex flex-wrap gap-2"><SmallLinkButton href={`/transport/fleet/${encodeURIComponent(vehicle.plate)}`}>Ver estado visual</SmallLinkButton><SmallButton onClick={() => onUpdateStatus(vehicle, "En ruta")}>En ruta</SmallButton><SmallButton onClick={() => onUpdateStatus(vehicle, "En patio")}>En patio</SmallButton><SmallButton onClick={() => onUpdateStatus(vehicle, "Mantenimiento")}>Taller</SmallButton></div>
     </article>
   );
 }
@@ -1758,9 +1901,15 @@ function severityProgress(severity: Severity) {
   return 74;
 }
 
+function periodLabel(period: PeriodId) {
+  if (period === "today") return "Hoy";
+  if (period === "year") return "Anual";
+  return "Mensual";
+}
+
 function badgeClass(value: string) {
   const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (["entregada", "disponible", "activo", "listo", "aprobado", "pod", "aceptada", "legalizado"].includes(normalized)) return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (["entregada", "disponible", "en patio", "activo", "listo", "aprobado", "pod", "aceptada", "legalizado"].includes(normalized)) return "border border-emerald-200 bg-emerald-50 text-emerald-700";
   if (["en riesgo", "incidencia", "critica", "alta", "mantenimiento", "detenido"].includes(normalized)) return "border border-rose-200 bg-rose-50 text-rose-700";
   if (["asignada", "planificada", "media", "revision", "abierto", "diseno"].includes(normalized)) return "border border-amber-200 bg-amber-50 text-amber-700";
   if (["en ruta", "en turno", "suite", "api"].includes(normalized)) return "border border-cyan-200 bg-cyan-50 text-cyan-700";
