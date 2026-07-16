@@ -437,6 +437,70 @@ const customerPerformance = [
 
 type CustomerPerformance = (typeof customerPerformance)[number];
 
+function buildCustomerPerformance(data: AppData): CustomerPerformance[] {
+  const byCustomer = new Map<string, CustomerPerformance>();
+
+  customerPerformance.forEach((customer) => {
+    byCustomer.set(customer.customer, { ...customer });
+  });
+
+  data.orders.forEach((order) => {
+    if (!byCustomer.has(order.customer)) {
+      byCustomer.set(order.customer, {
+        customer: order.customer,
+        assignedVehicles: 0,
+        inUseVehicles: 0,
+        availableVehicles: 0,
+        compliance: 0,
+        utilization: 0,
+        orders: 0,
+        revenue: "$0",
+        incidents: 0,
+        costPerKm: "$0",
+        margin: "0%",
+        trend: "Nuevo",
+      });
+    }
+  });
+
+  return [...byCustomer.values()]
+    .map((base) => {
+      const orders = data.orders.filter((order) => order.customer === base.customer);
+      if (orders.length === 0) return base;
+
+      const assignedPlates = new Set(orders.map((order) => order.vehicle).filter((plate) => plate && plate !== "Sin asignar"));
+      const assignedVehicles = Math.max(base.assignedVehicles, assignedPlates.size);
+      const inUseVehicles = [...assignedPlates].filter((plate) => {
+        const vehicle = data.fleet.find((item) => item.plate === plate);
+        const activeOrder = orders.some((order) => order.vehicle === plate && ["En ruta", "En riesgo", "Incidencia"].includes(order.status));
+        return vehicle?.status === "En ruta" || activeOrder;
+      }).length;
+      const availableVehicles = Math.max(0, assignedVehicles - inUseVehicles);
+      const compliance = Math.round(orders.reduce((sum, order) => sum + orderComplianceScore(order), 0) / orders.length);
+      const utilization = assignedVehicles > 0 ? Math.round((inUseVehicles / assignedVehicles) * 100) : Math.round(orders.reduce((sum, order) => sum + order.progress, 0) / orders.length);
+      const revenueValue = orders.reduce((sum, order) => sum + parseTransportMoney(order.value), 0);
+      const expenseValue = data.expenses.filter((expense) => orders.some((order) => order.id === expense.orderId)).reduce((sum, expense) => sum + expense.amount, 0);
+      const margin = revenueValue > 0 ? Math.round(((revenueValue - expenseValue) / revenueValue) * 100) : Number.parseInt(base.margin, 10) || 0;
+      const incidents = orders.filter((order) => ["En riesgo", "Incidencia"].includes(order.status)).length;
+
+      return {
+        ...base,
+        assignedVehicles,
+        inUseVehicles,
+        availableVehicles,
+        compliance,
+        utilization,
+        orders: orders.length,
+        revenue: formatCompactMoney(revenueValue || parseTransportMoney(base.revenue)),
+        incidents,
+        costPerKm: formatCompactMoney(orders.length > 0 ? Math.round(expenseValue / orders.length) : parseTransportMoney(base.costPerKm)),
+        margin: `${margin}%`,
+        trend: compliance >= base.compliance ? `+${compliance - base.compliance}%` : `${compliance - base.compliance}%`,
+      };
+    })
+    .sort((a, b) => b.orders - a.orders || b.compliance - a.compliance);
+}
+
 const mapVehicles = [
   { plate: "TRK-482", position: [4.735, -74.104] as [number, number], status: "En ruta" as VehicleStatus, route: "R-18", eta: "15:42" },
   { plate: "VAN-221", position: [4.639, -74.084] as [number, number], status: "En ruta" as VehicleStatus, route: "R-24", eta: "14:20" },
@@ -683,10 +747,11 @@ function AtlasTransportClient({ viewId, suiteEnabled = true }: { viewId: ViewId;
 }
 
 function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppData; onExport: () => void; onResolveAlert: (alert: Alert) => void; onReset: () => void }) {
-  const priorityClient = customerPerformance[0];
-  const clientsBelowTarget = customerPerformance.filter((client) => client.compliance < 95);
-  const sortedByCompliance = [...customerPerformance].sort((a, b) => b.compliance - a.compliance);
-  const totals = customerPerformance.reduce(
+  const customerMetrics = useMemo(() => buildCustomerPerformance(data), [data]);
+  const clientsBelowTarget = customerMetrics.filter((client) => client.compliance < 95);
+  const sortedByCompliance = [...customerMetrics].sort((a, b) => b.compliance - a.compliance);
+  const priorityClient = [...customerMetrics].sort((a, b) => a.compliance - b.compliance || b.orders - a.orders)[0] ?? customerMetrics[0];
+  const totals = customerMetrics.reduce(
     (summary, client) => ({
       assignedVehicles: summary.assignedVehicles + client.assignedVehicles,
       inUseVehicles: summary.inUseVehicles + client.inUseVehicles,
@@ -696,9 +761,9 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
     }),
     { assignedVehicles: 0, inUseVehicles: 0, availableVehicles: 0, orders: 0, compliance: 0 },
   );
-  const averageCompliance = Math.round(totals.compliance / customerPerformance.length);
-  const averageUtilization = Math.round((totals.inUseVehicles / totals.assignedVehicles) * 100);
-  const availability = Math.round((totals.availableVehicles / totals.assignedVehicles) * 100);
+  const averageCompliance = customerMetrics.length ? Math.round(totals.compliance / customerMetrics.length) : 0;
+  const averageUtilization = totals.assignedVehicles ? Math.round((totals.inUseVehicles / totals.assignedVehicles) * 100) : 0;
+  const availability = totals.assignedVehicles ? Math.round((totals.availableVehicles / totals.assignedVehicles) * 100) : 0;
 
   return (
     <div className="space-y-5">
@@ -726,7 +791,7 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
               <div className="min-w-0">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700">Cliente prioritario</span>
                 <h3 className="mt-2 text-2xl font-black text-slate-950">{priorityClient.customer}</h3>
-                <p className="mt-1 max-w-xl text-sm leading-5 text-slate-600">Cuenta critica: 10 vehiculos dedicados, 4 disponibles y cumplimiento debajo de la meta ejecutiva.</p>
+              <p className="mt-1 max-w-xl text-sm leading-5 text-slate-600">Cuenta critica: {priorityClient.assignedVehicles} vehiculos dedicados, {priorityClient.availableVehicles} disponibles y cumplimiento debajo de la meta ejecutiva.</p>
               </div>
               <StatusBadge value={priorityClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
             </div>
@@ -751,11 +816,11 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
         </Panel>
       </section>
       <Panel title="Como vamos con cada cliente" action="Descargar">
-        <CustomerPerformanceTable />
+        <CustomerPerformanceTable clients={customerMetrics} />
       </Panel>
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <Panel title="Flota por cliente" action="Ver detalle">
-          <FleetAllocationBoard clients={customerPerformance} />
+          <FleetAllocationBoard clients={customerMetrics} />
         </Panel>
         <Panel title="Clientes bajo meta" action="Gestionar">
           <div className="space-y-3">
@@ -2020,10 +2085,10 @@ function PriorityMeter({ label, value, target, tone }: { label: string; value: n
   );
 }
 
-function CustomerPerformanceTable() {
+function CustomerPerformanceTable({ clients = customerPerformance }: { clients?: CustomerPerformance[] }) {
   return (
     <DataPanel columns={["Cliente", "Cumplimiento", "Vehiculos", "En uso", "Disponibles", "Uso flota", "Ordenes", "Facturacion", "Novedades"]}>
-      {customerPerformance.map((customer) => (
+      {clients.map((customer) => (
         <tr key={customer.customer}>
           <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-950">{customer.customer}</td>
           <td className="min-w-36 px-4 py-3">
@@ -2121,6 +2186,31 @@ function SeverityDot({ severity }: { severity: Severity }) {
 
 function ProgressBar({ value }: { value: number }) {
   return <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-label={`${value}%`}><span className="block h-full rounded-full bg-cyan-500" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} /></div>;
+}
+
+function orderComplianceScore(order: Order) {
+  if (order.status === "Entregada") return 100;
+  if (order.status === "En ruta") return Math.max(92, order.progress);
+  if (order.status === "Asignada") return Math.max(86, Math.min(94, order.progress + 60));
+  if (order.status === "Planificada") return Math.max(78, Math.min(90, order.progress + 70));
+  if (order.status === "En riesgo") return Math.max(70, Math.min(84, order.progress));
+  if (order.status === "Incidencia") return Math.max(45, Math.min(72, order.progress));
+  return order.progress;
+}
+
+function parseTransportMoney(value: string) {
+  const normalized = value.trim().toUpperCase().replace(/\$/g, "").replace(/\s/g, "").replace(/,/g, ".");
+  const amount = Number.parseFloat(normalized.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(amount)) return 0;
+  if (normalized.includes("M")) return amount * 1_000_000;
+  if (normalized.includes("K")) return amount * 1_000;
+  return amount;
+}
+
+function formatCompactMoney(value: number) {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toLocaleString("es-CO", { maximumFractionDigits: 1 })}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000).toLocaleString("es-CO")}K`;
+  return money.format(value);
 }
 
 function MeterBar({ value, tone, marker }: { value: number; tone: "success" | "warning" | "danger" | "info"; marker?: number }) {
