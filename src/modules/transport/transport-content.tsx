@@ -555,6 +555,14 @@ type LiveGpsVehicle = {
   recordedAt: string;
 };
 
+type LiveGpsPoint = {
+  plate: string;
+  latitude: number;
+  longitude: number;
+  speed?: number | null;
+  recordedAt: string;
+};
+
 const costBreakdown = [
   { name: "Combustible", value: 42 },
   { name: "Conductor", value: 24 },
@@ -1278,9 +1286,26 @@ function OperationalMap() {
         try {
           const response = await fetch("/api/transport/gps?token=nexora-demo-gps-2026", { cache: "no-store" });
           if (!response.ok) return;
-          const payload = (await response.json()) as { vehicles?: LiveGpsVehicle[] };
+          const payload = (await response.json()) as { vehicles?: LiveGpsVehicle[]; history?: LiveGpsPoint[] };
           const vehicles = payload.vehicles?.filter((vehicle) => Number.isFinite(vehicle.latitude) && Number.isFinite(vehicle.longitude)) ?? [];
+          const history = payload.history?.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude)) ?? [];
           liveLayer.clearLayers();
+
+          const tracks = new Map<string, LiveGpsPoint[]>();
+          for (const point of history) {
+            tracks.set(point.plate, [...(tracks.get(point.plate) ?? []), point]);
+          }
+
+          for (const [plate, points] of tracks) {
+            if (points.length < 2) continue;
+            L.polyline(points.map((point) => [point.latitude, point.longitude] as [number, number]), {
+              color: "#16a34a",
+              opacity: 0.78,
+              weight: 5,
+            })
+              .bindTooltip(`Recorrido GPS ${plate}: ${points.length} puntos`)
+              .addTo(liveLayer);
+          }
 
           for (const vehicle of vehicles) {
             const secondsAgo = Math.max(0, Math.round((Date.now() - new Date(vehicle.recordedAt).getTime()) / 1000));
@@ -1289,8 +1314,8 @@ function OperationalMap() {
             L.marker([vehicle.latitude, vehicle.longitude], {
               icon: L.divIcon({
                 className: "",
-                html: `<span style="display:inline-flex;align-items:center;gap:4px;border:2px solid #fff;border-radius:999px;background:${color};color:#fff;padding:5px 9px;font-size:11px;font-weight:900;box-shadow:0 8px 22px rgba(15,23,42,.32);white-space:nowrap;">GPS ${vehicle.plate}</span>`,
-                iconAnchor: [36, 13],
+                html: `<span style="display:inline-flex;align-items:center;gap:6px;border:2px solid #fff;border-radius:999px;background:${color};color:#fff;padding:5px 10px;font-size:11px;font-weight:900;box-shadow:0 8px 22px rgba(15,23,42,.32);white-space:nowrap;"><span style="font-size:14px;line-height:1;">▰</span>${vehicle.plate}</span>`,
+                iconAnchor: [38, 14],
               }),
             })
               .bindPopup(`<strong>${vehicle.plate}</strong><br/>${vehicle.driver ?? "Conductor"}<br/>${vehicle.orderId ?? "Sin orden"}<br/>${secondsAgo}s desde ultima senal<br/>${vehicle.speed ? `${Math.round(vehicle.speed * 3.6)} km/h` : "Velocidad no reportada"}`)

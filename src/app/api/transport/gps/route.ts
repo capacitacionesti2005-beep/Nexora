@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
 
   await ensureGpsTable();
 
+  const plateFilter = request.nextUrl.searchParams.get("plate")?.trim().toUpperCase();
+
   const rows = await prisma.$queryRaw<Array<{
     plate: string;
     driver: string | null;
@@ -102,6 +104,37 @@ export async function GET(request: NextRequest) {
     LIMIT 100;
   `;
 
+  const historyRows = plateFilter
+    ? await prisma.$queryRaw<Array<{
+        plate: string;
+        latitude: number;
+        longitude: number;
+        speed: number | null;
+        recorded_at: Date;
+      }>>`
+        SELECT plate, latitude, longitude, speed, recorded_at
+        FROM transport_gps_ping
+        WHERE plate = ${plateFilter}
+        ORDER BY recorded_at ASC
+        LIMIT 500;
+      `
+    : await prisma.$queryRaw<Array<{
+        plate: string;
+        latitude: number;
+        longitude: number;
+        speed: number | null;
+        recorded_at: Date;
+      }>>`
+        SELECT plate, latitude, longitude, speed, recorded_at
+        FROM (
+          SELECT plate, latitude, longitude, speed, recorded_at,
+                 ROW_NUMBER() OVER (PARTITION BY plate ORDER BY recorded_at DESC) AS rn
+          FROM transport_gps_ping
+        ) recent
+        WHERE rn <= 120
+        ORDER BY plate, recorded_at ASC;
+      `;
+
   return NextResponse.json({
     vehicles: rows.map((row) => ({
       plate: row.plate,
@@ -113,6 +146,13 @@ export async function GET(request: NextRequest) {
       speed: row.speed,
       bearing: row.bearing,
       battery: row.battery,
+      recordedAt: row.recorded_at.toISOString(),
+    })),
+    history: historyRows.map((row) => ({
+      plate: row.plate,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      speed: row.speed,
       recordedAt: row.recorded_at.toISOString(),
     })),
   });
