@@ -720,30 +720,30 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
         <KpiCard kpi={{ label: "Uso de flota", value: `${averageUtilization}%`, delta: "Promedio cartera", target: "Rango 70%-85%", severity: averageUtilization >= 70 && averageUtilization <= 85 ? "success" : "warning" }} />
       </section>
       <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        <article className="rounded-lg border border-amber-200 bg-amber-50/50 p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700">Cliente prioritario</span>
-              <h3 className="mt-2 text-2xl font-black text-slate-950">{priorityClient.customer}</h3>
-              <p className="mt-1 text-sm text-slate-600">Tiene volumen relevante, 10 vehiculos dedicados y cumplimiento por debajo de meta.</p>
+        <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-l-4 border-rose-500 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700">Cliente prioritario</span>
+                <h3 className="mt-2 text-2xl font-black text-slate-950">{priorityClient.customer}</h3>
+                <p className="mt-1 max-w-xl text-sm leading-5 text-slate-600">Cuenta critica: 10 vehiculos dedicados, 4 disponibles y cumplimiento debajo de la meta ejecutiva.</p>
+              </div>
+              <StatusBadge value={priorityClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
             </div>
-            <StatusBadge value={priorityClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Pill icon={<ClipboardCheck className="h-4 w-4" />} label="Cumplimiento" value={`${priorityClient.compliance}%`} />
-            <Pill icon={<Truck className="h-4 w-4" />} label="Vehiculos totales" value={priorityClient.assignedVehicles.toString()} />
-            <Pill icon={<Navigation className="h-4 w-4" />} label="En uso" value={priorityClient.inUseVehicles.toString()} />
-            <Pill icon={<MapPinned className="h-4 w-4" />} label="Disponibles" value={priorityClient.availableVehicles.toString()} />
-          </div>
-          <div className="mt-5 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-600"><span>Uso de flota</span><span>{priorityClient.utilization}%</span></div>
-            <ProgressBar value={priorityClient.utilization} />
-            <div className="flex items-center justify-between text-xs font-bold text-slate-600"><span>Cumplimiento SLA</span><span>{priorityClient.compliance}%</span></div>
-            <ProgressBar value={priorityClient.compliance} />
-          </div>
-          <div className="mt-5 rounded-lg border border-amber-200 bg-white p-3 text-sm text-slate-700">
-            <strong className="block text-slate-950">Accion recomendada</strong>
-            <span className="mt-1 block">Rebalancear 2 vehiculos disponibles hacia ventanas criticas y revisar causas de no cumplimiento antes del cierre semanal.</span>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <CompactMetric label="SLA" value={`${priorityClient.compliance}%`} tone="danger" />
+              <CompactMetric label="Vehiculos" value={priorityClient.assignedVehicles.toString()} />
+              <CompactMetric label="En ruta" value={priorityClient.inUseVehicles.toString()} />
+              <CompactMetric label="Reserva" value={priorityClient.availableVehicles.toString()} />
+            </div>
+            <div className="mt-5 space-y-4">
+              <PriorityMeter label="Cumplimiento SLA" value={priorityClient.compliance} target={95} tone="danger" />
+              <PriorityMeter label="Uso de flota" value={priorityClient.utilization} target={75} tone="info" />
+            </div>
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <strong className="block text-sm font-black text-slate-950">Plan inmediato</strong>
+              <p className="mt-1 text-sm leading-5 text-slate-600">Reasignar 2 vehiculos de reserva a ventanas criticas y revisar novedades antes del cierre semanal.</p>
+            </div>
           </div>
         </article>
         <Panel title="Ranking ejecutivo de clientes" action="Descargar">
@@ -755,16 +755,7 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
       </Panel>
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <Panel title="Flota por cliente" action="Ver detalle">
-          <ChartBox>
-            <BarChart data={customerPerformance}>
-              <CartesianGrid strokeDasharray="4 4" vertical={false} />
-              <XAxis dataKey="customer" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} />
-              <Tooltip />
-              <Bar dataKey="inUseVehicles" name="En uso" stackId="fleet" fill="#2563eb" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="availableVehicles" name="Disponibles" stackId="fleet" fill="#0f766e" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ChartBox>
+          <FleetAllocationBoard clients={customerPerformance} />
         </Panel>
         <Panel title="Clientes bajo meta" action="Gestionar">
           <div className="space-y-3">
@@ -1907,83 +1898,124 @@ function CustomerRankingBoard({ clients }: { clients: CustomerPerformance[] }) {
 
   const leader = clients[0]!;
   const atRisk = clients.filter((client) => client.compliance < target);
-  const bestUse = clients.reduce((best, client) => (client.utilization > best.utilization ? client : best), leader);
-  const focusClient = atRisk.length > 0 ? atRisk[atRisk.length - 1] : undefined;
+  const focusClient = [...clients].sort((a, b) => a.compliance - b.compliance)[0]!;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
-      <div className="min-w-0">
-        <div className="hidden grid-cols-[48px_minmax(160px,1fr)_minmax(180px,1.2fr)_minmax(150px,0.8fr)_90px] gap-4 border-b border-slate-200 pb-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 md:grid">
-          <span>Rank</span>
-          <span>Cliente</span>
-          <span>Cumplimiento SLA</span>
-          <span>Uso de flota</span>
-          <span className="text-right">Accion</span>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {clients.map((client, index) => {
-            const status = rankingStatus(client.compliance);
-            return (
-              <article key={client.customer} className="grid gap-3 py-4 md:grid-cols-[48px_minmax(160px,1fr)_minmax(180px,1.2fr)_minmax(150px,0.8fr)_90px] md:items-center">
-                <div className="flex items-center gap-3">
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-black ${index === 0 ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>
-                    {index + 1}
-                  </span>
-                  <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 md:hidden">Rank</span>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-sm font-black text-slate-950">{client.customer}</h3>
-                    <span className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-xs font-black ${status.className}`}>{status.label}</span>
-                  </div>
-                  <p className="mt-1 text-xs font-bold text-slate-500">{client.assignedVehicles} vehiculos asignados / {client.availableVehicles} disponibles</p>
-                </div>
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold text-slate-500">Meta {target}%</span>
-                    <strong className="text-lg font-black text-slate-950">{client.compliance}%</strong>
-                  </div>
-                  <MeterBar value={client.compliance} tone={status.tone} marker={target} />
-                </div>
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold text-slate-500">{client.inUseVehicles} en ruta</span>
-                    <strong className="text-sm font-black text-slate-700">{client.utilization}%</strong>
-                  </div>
-                  <MeterBar value={client.utilization} tone="info" />
-                </div>
-                <div className="text-left md:text-right">
-                  <span className="text-sm font-black text-slate-950">{client.compliance < target ? "Priorizar" : "Mantener"}</span>
-                  <p className="mt-1 text-xs font-bold text-slate-500">{client.incidents} nov.</p>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <ExecutiveSummary label="Lider" value={`${leader.customer} ${leader.compliance}%`} />
+        <ExecutiveSummary label="Bajo meta" value={`${atRisk.length} clientes`} />
+        <ExecutiveSummary label="Foco" value={`${focusClient.customer} ${focusClient.compliance}%`} />
       </div>
-      <aside className="rounded-md bg-slate-950 p-4 text-white">
-        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">Lectura ejecutiva</span>
-        <strong className="mt-3 block text-2xl font-black">{leader.customer}</strong>
-        <p className="mt-1 text-sm leading-5 text-slate-300">lidera el cumplimiento con {leader.compliance}% y margen {leader.margin}.</p>
-        <dl className="mt-5 grid grid-cols-2 gap-3">
-          <div>
-            <dt className="text-xs font-bold text-slate-400">Bajo meta</dt>
-            <dd className="mt-1 text-xl font-black">{atRisk.length}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold text-slate-400">Mayor uso</dt>
-            <dd className="mt-1 text-xl font-black">{bestUse.utilization}%</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold text-slate-400">Cliente foco</dt>
-            <dd className="mt-1 text-sm font-black">{focusClient?.customer ?? "Sin riesgo"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-bold text-slate-400">Meta SLA</dt>
-            <dd className="mt-1 text-xl font-black">{target}%</dd>
-          </div>
-        </dl>
-      </aside>
+      <div className="space-y-2">
+        {clients.map((client, index) => {
+          const status = rankingStatus(client.compliance);
+          return (
+            <article key={client.customer} className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 sm:grid-cols-[36px_minmax(0,1fr)_72px] sm:items-center">
+              <span className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-black ${index === 0 ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>{index + 1}</span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-black text-slate-950">{client.customer}</h3>
+                    <p className="mt-0.5 text-xs font-bold text-slate-500">{client.inUseVehicles}/{client.assignedVehicles} vehiculos en uso / {client.availableVehicles} reserva / {client.incidents} nov.</p>
+                  </div>
+                  <span className={`inline-flex min-h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-black ${status.className}`}>{status.label}</span>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <MeterBar value={client.compliance} tone={status.tone} marker={target} />
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                    <span>SLA meta {target}%</span>
+                    <span>Uso {client.utilization}%</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-end justify-between gap-3 sm:block sm:text-right">
+                <span className="text-2xl font-black text-slate-950">{client.compliance}%</span>
+                <p className="text-xs font-black text-slate-500">{client.compliance < target ? "Priorizar" : "Ok"}</p>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FleetAllocationBoard({ clients }: { clients: CustomerPerformance[] }) {
+  const totals = clients.reduce(
+    (summary, client) => ({
+      assigned: summary.assigned + client.assignedVehicles,
+      inUse: summary.inUse + client.inUseVehicles,
+      available: summary.available + client.availableVehicles,
+    }),
+    { assigned: 0, inUse: 0, available: 0 },
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <ExecutiveSummary label="Total" value={totals.assigned.toString()} />
+        <ExecutiveSummary label="En ruta" value={totals.inUse.toString()} />
+        <ExecutiveSummary label="Reserva" value={totals.available.toString()} />
+      </div>
+      <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-500">
+        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-cyan-600" /> En uso</span>
+        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Disponible</span>
+      </div>
+      <div className="space-y-3">
+        {clients.map((client) => {
+          const useWidth = Math.round((client.inUseVehicles / client.assignedVehicles) * 100);
+          const availableWidth = 100 - useWidth;
+          return (
+            <article key={client.customer} className="grid gap-2 md:grid-cols-[130px_minmax(0,1fr)_72px] md:items-center">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-black text-slate-950">{client.customer}</h3>
+                <p className="text-xs font-bold text-slate-500">{client.utilization}% uso</p>
+              </div>
+              <div className="h-8 overflow-hidden rounded-md bg-slate-100">
+                <div className="flex h-full">
+                  <span className="bg-cyan-600" style={{ width: `${useWidth}%` }} aria-label={`${client.inUseVehicles} vehiculos en uso`} />
+                  <span className="bg-emerald-600" style={{ width: `${availableWidth}%` }} aria-label={`${client.availableVehicles} vehiculos disponibles`} />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 md:block md:text-right">
+                <strong className="text-sm font-black text-slate-950">{client.assignedVehicles}</strong>
+                <p className="text-xs font-bold text-slate-500">{client.inUseVehicles} / {client.availableVehicles}</p>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ExecutiveSummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-slate-50 px-3 py-2">
+      <span className="block text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">{label}</span>
+      <strong className="mt-1 block truncate text-sm font-black text-slate-950">{value}</strong>
+    </div>
+  );
+}
+
+function CompactMetric({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "neutral" | "danger" }) {
+  return (
+    <div className="rounded-md bg-slate-50 px-3 py-3">
+      <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">{label}</span>
+      <strong className={`mt-1 block text-xl font-black ${tone === "danger" ? "text-rose-700" : "text-slate-950"}`}>{value}</strong>
+    </div>
+  );
+}
+
+function PriorityMeter({ label, value, target, tone }: { label: string; value: number; target: number; tone: "danger" | "info" }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+        <span>{label}</span>
+        <span>{value}% / meta {target}%</span>
+      </div>
+      <MeterBar value={value} marker={target} tone={tone} />
     </div>
   );
 }
