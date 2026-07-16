@@ -207,10 +207,18 @@ public class MainActivity extends Activity {
 
     private void requestCorePermissions() {
         if (Build.VERSION.SDK_INT >= 23) {
-            requestPermissions(new String[]{
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-            }, 10);
+            if (Build.VERSION.SDK_INT >= 33) {
+                requestPermissions(new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.POST_NOTIFICATIONS
+                }, 10);
+            } else {
+                requestPermissions(new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                }, 10);
+            }
         }
     }
 
