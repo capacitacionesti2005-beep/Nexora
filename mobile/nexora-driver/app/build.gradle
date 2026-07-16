@@ -2,21 +2,41 @@ plugins {
     id "com.android.application"
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "com.nexora.driver"
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.nexora.driverdemo"
+        applicationId "com.nexora.driver"
         minSdk 23
         targetSdk 35
-        versionCode 5
-        versionName "0.1.4-demo"
+        versionCode 6
+        versionName "0.1.5-demo"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile rootProject.file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            }
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+        }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
         }
     }

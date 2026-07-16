@@ -48,3 +48,5 @@ dev-server*.log
 mobile/nexora-driver/.gradle/
 mobile/nexora-driver/build/
 mobile/nexora-driver/app/build/
+mobile/nexora-driver/keystore/
+mobile/nexora-driver/keystore.properties
