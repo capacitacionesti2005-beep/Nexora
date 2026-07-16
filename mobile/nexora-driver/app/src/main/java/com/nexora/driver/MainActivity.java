@@ -113,8 +113,7 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 23) {
             requestPermissions(new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Build.VERSION.SDK_INT >= 33 ? Manifest.permission.POST_NOTIFICATIONS : Manifest.permission.ACCESS_FINE_LOCATION
+                    Manifest.permission.ACCESS_COARSE_LOCATION
             }, 10);
         }
     }
