@@ -543,6 +543,18 @@ const mapRoutes = [
   },
 ];
 
+type LiveGpsVehicle = {
+  plate: string;
+  driver?: string | null;
+  orderId?: string | null;
+  latitude: number;
+  longitude: number;
+  accuracy?: number | null;
+  speed?: number | null;
+  battery?: number | null;
+  recordedAt: string;
+};
+
 const costBreakdown = [
   { name: "Combustible", value: 42 },
   { name: "Conductor", value: 24 },
@@ -1216,6 +1228,8 @@ function OperationalMap() {
 
   useEffect(() => {
     let map: import("leaflet").Map | undefined;
+    let liveLayer: import("leaflet").LayerGroup | undefined;
+    let pollTimer: number | undefined;
     let isDisposed = false;
 
     async function mountMap() {
@@ -1257,15 +1271,48 @@ function OperationalMap() {
           .addTo(map);
       }
 
+      liveLayer = L.layerGroup().addTo(map);
+
+      async function refreshLiveGps() {
+        if (!map || !liveLayer || isDisposed) return;
+        try {
+          const response = await fetch("/api/transport/gps?token=nexora-demo-gps-2026", { cache: "no-store" });
+          if (!response.ok) return;
+          const payload = (await response.json()) as { vehicles?: LiveGpsVehicle[] };
+          const vehicles = payload.vehicles?.filter((vehicle) => Number.isFinite(vehicle.latitude) && Number.isFinite(vehicle.longitude)) ?? [];
+          liveLayer.clearLayers();
+
+          for (const vehicle of vehicles) {
+            const secondsAgo = Math.max(0, Math.round((Date.now() - new Date(vehicle.recordedAt).getTime()) / 1000));
+            const stale = secondsAgo > 120;
+            const color = stale ? "#f59e0b" : "#16a34a";
+            L.marker([vehicle.latitude, vehicle.longitude], {
+              icon: L.divIcon({
+                className: "",
+                html: `<span style="display:inline-flex;align-items:center;gap:4px;border:2px solid #fff;border-radius:999px;background:${color};color:#fff;padding:5px 9px;font-size:11px;font-weight:900;box-shadow:0 8px 22px rgba(15,23,42,.32);white-space:nowrap;">GPS ${vehicle.plate}</span>`,
+                iconAnchor: [36, 13],
+              }),
+            })
+              .bindPopup(`<strong>${vehicle.plate}</strong><br/>${vehicle.driver ?? "Conductor"}<br/>${vehicle.orderId ?? "Sin orden"}<br/>${secondsAgo}s desde ultima senal<br/>${vehicle.speed ? `${Math.round(vehicle.speed * 3.6)} km/h` : "Velocidad no reportada"}`)
+              .addTo(liveLayer);
+          }
+        } catch {
+          // La torre mantiene el mapa demo si la API GPS aun no responde.
+        }
+      }
+
       const allPoints = [...mapRoutes.flatMap((route) => route.points), ...mapVehicles.map((vehicle) => vehicle.position)];
       map.fitBounds(L.latLngBounds(allPoints), { padding: [28, 28] });
       window.setTimeout(() => map?.invalidateSize(), 80);
+      void refreshLiveGps();
+      pollTimer = window.setInterval(refreshLiveGps, 10000);
     }
 
     void mountMap();
 
     return () => {
       isDisposed = true;
+      if (pollTimer) window.clearInterval(pollTimer);
       map?.remove();
     };
   }, []);
@@ -1277,6 +1324,7 @@ function OperationalMap() {
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-cyan-700" /> En ruta</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-700" /> En patio</span>
         <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-700" /> Novedad</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-600" /> GPS real</span>
       </div>
     </div>
   );

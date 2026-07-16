@@ -44,3 +44,7 @@ dev-server*.log
 .codex-dev*.log
 .next-dev*.log
 .postgres/
+.tools/
+mobile/nexora-driver/.gradle/
+mobile/nexora-driver/build/
+mobile/nexora-driver/app/build/
