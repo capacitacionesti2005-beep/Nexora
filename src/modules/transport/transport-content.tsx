@@ -2110,28 +2110,17 @@ function FleetAllocationBoard({ clients }: { clients: CustomerPerformance[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-[1.1fr_0.9fr_0.9fr_0.9fr]">
-        <div className="rounded-lg bg-slate-950 p-4 text-white">
-          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">Ocupacion general</span>
-          <div className="mt-2 flex items-end justify-between gap-3">
-            <strong className="text-3xl font-black">{activeRate}%</strong>
-            <span className="text-xs font-bold text-slate-300">{totals.inUse}/{totals.assigned} en ruta</span>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
-            <span className="block h-full rounded-full bg-cyan-400" style={{ width: `${Math.min(100, activeRate)}%` }} />
-          </div>
-        </div>
-        <ExecutiveSummary label="Vehiculos asignados" value={totals.assigned.toString()} />
-        <ExecutiveSummary label="En ruta" value={totals.inUse.toString()} />
-        <ExecutiveSummary label="Disponibles / patio" value={totals.available.toString()} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FleetSummaryCard label="Uso de flota" value={`${activeRate}%`} detail={`${totals.inUse} de ${totals.assigned} vehiculos en ruta`} />
+        <FleetSummaryCard label="Vehiculos asignados" value={totals.assigned.toString()} detail="Flota comprometida con clientes" />
+        <FleetSummaryCard label="En ruta" value={totals.inUse.toString()} detail="Vehiculos operando ahora" />
+        <FleetSummaryCard label="Disponibles / patio" value={totals.available.toString()} detail="Listos para reasignar" />
       </div>
 
-      <div className="grid gap-2 border-b border-slate-200 pb-2 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 md:grid-cols-[minmax(150px,1.2fr)_90px_90px_110px_minmax(160px,1fr)_100px_auto]">
+      <div className="grid gap-2 border-b border-slate-200 pb-2 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 md:grid-cols-[minmax(150px,1fr)_minmax(220px,1.35fr)_190px_110px_auto]">
         <span>Cliente</span>
-        <span>Asignados</span>
-        <span>En ruta</span>
-        <span>Patio</span>
-        <span>Distribucion</span>
+        <span>Lectura operativa</span>
+        <span>Vehiculos</span>
         <span>SLA</span>
         <span className="text-right">Accion</span>
       </div>
@@ -2139,24 +2128,15 @@ function FleetAllocationBoard({ clients }: { clients: CustomerPerformance[] }) {
       <div className="space-y-2">
         {sortedClients.map((client) => {
           const useWidth = client.assignedVehicles > 0 ? Math.round((client.inUseVehicles / client.assignedVehicles) * 100) : 0;
-          const availableWidth = client.assignedVehicles > 0 ? Math.round((client.availableVehicles / client.assignedVehicles) * 100) : 0;
           const health = fleetClientHealth(client);
           return (
-            <article key={client.customer} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition hover:border-slate-300 hover:bg-slate-50/70 md:grid-cols-[minmax(150px,1.2fr)_90px_90px_110px_minmax(160px,1fr)_100px_auto] md:items-center">
+            <article key={client.customer} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition hover:border-slate-300 hover:bg-slate-50/70 md:grid-cols-[minmax(150px,1fr)_minmax(220px,1.35fr)_190px_110px_auto] md:items-center">
               <div className="min-w-0">
                 <h3 className="truncate text-sm font-black text-slate-950">{client.customer}</h3>
                 <p className="mt-0.5 text-xs font-bold text-slate-500">{client.orders} ordenes / {client.incidents} novedades</p>
               </div>
-              <FleetNumber value={client.assignedVehicles} label="total" />
-              <FleetNumber value={client.inUseVehicles} label={`${useWidth}% uso`} tone="active" />
-              <FleetNumber value={client.availableVehicles} label="listos" tone="available" />
-              <div>
-                <FleetSplitBar inUseWidth={useWidth} availableWidth={availableWidth} />
-                <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-bold text-slate-500">
-                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-cyan-500" /> ruta</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /> patio</span>
-                </div>
-              </div>
+              <FleetOperationalReadout client={client} useRate={useWidth} />
+              <FleetVehiclePills client={client} />
               <div>
                 <div className="flex items-center justify-between gap-2 md:block">
                   <strong className={`text-sm font-black ${health.text}`}>{client.compliance}%</strong>
@@ -2172,28 +2152,48 @@ function FleetAllocationBoard({ clients }: { clients: CustomerPerformance[] }) {
   );
 }
 
-function FleetNumber({ value, label, tone = "neutral" }: { value: number; label: string; tone?: "neutral" | "active" | "available" }) {
-  const toneClass = tone === "active" ? "text-cyan-700 bg-cyan-50 border-cyan-100" : tone === "available" ? "text-emerald-700 bg-emerald-50 border-emerald-100" : "text-slate-950 bg-slate-50 border-slate-100";
-
+function FleetSummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className={`rounded-lg border px-3 py-2 ${toneClass}`}>
-      <strong className="block text-lg font-black leading-none">{value}</strong>
-      <span className="mt-1 block text-[11px] font-bold text-slate-500">{label}</span>
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+      <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</span>
+      <strong className="mt-2 block text-2xl font-black leading-none text-slate-950">{value}</strong>
+      <p className="mt-2 text-xs font-bold leading-4 text-slate-500">{detail}</p>
     </div>
   );
 }
 
-function FleetSplitBar({ inUseWidth, availableWidth }: { inUseWidth: number; availableWidth: number }) {
-  const hasNoVehicles = inUseWidth + availableWidth === 0;
+function FleetOperationalReadout({ client, useRate }: { client: CustomerPerformance; useRate: number }) {
+  const text = client.assignedVehicles === 0
+    ? "Sin vehiculo asignado"
+    : client.inUseVehicles === client.assignedVehicles
+      ? `${client.inUseVehicles} de ${client.assignedVehicles} vehiculos estan en ruta`
+      : client.inUseVehicles === 0
+        ? `${client.availableVehicles} vehiculo${client.availableVehicles === 1 ? "" : "s"} disponible${client.availableVehicles === 1 ? "" : "s"} en patio`
+        : `${client.inUseVehicles} en ruta y ${client.availableVehicles} disponible${client.availableVehicles === 1 ? "" : "s"} en patio`;
 
   return (
-    <div className="h-4 overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200" aria-label={`${inUseWidth}% en ruta y ${availableWidth}% en patio`}>
-      {hasNoVehicles ? <span className="block h-full bg-slate-200" /> : (
-        <div className="flex h-full">
-          <span className="bg-cyan-500" style={{ width: `${inUseWidth}%` }} />
-          <span className="bg-emerald-500" style={{ width: `${availableWidth}%` }} />
-        </div>
-      )}
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <strong className="block text-sm font-black text-slate-950">{text}</strong>
+      <p className="mt-1 text-xs font-bold text-slate-500">Uso de flota {useRate}% / {client.orders} ordenes activas</p>
+    </div>
+  );
+}
+
+function FleetVehiclePills({ client }: { client: CustomerPerformance }) {
+  return (
+    <div className="grid grid-cols-3 gap-1.5">
+      <div className="rounded-md border border-slate-200 bg-white px-2 py-2">
+        <span className="block text-[10px] font-black uppercase text-slate-500">Total</span>
+        <strong className="text-sm font-black text-slate-950">{client.assignedVehicles}</strong>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-white px-2 py-2">
+        <span className="block text-[10px] font-black uppercase text-slate-500">Ruta</span>
+        <strong className="text-sm font-black text-slate-950">{client.inUseVehicles}</strong>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-white px-2 py-2">
+        <span className="block text-[10px] font-black uppercase text-slate-500">Patio</span>
+        <strong className="text-sm font-black text-slate-950">{client.availableVehicles}</strong>
+      </div>
     </div>
   );
 }
