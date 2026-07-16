@@ -33,15 +33,12 @@ import {
   ShieldAlert,
   ShieldCheck,
   Smartphone,
-  Sparkles,
   Truck,
   UserRoundCheck,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -430,12 +427,12 @@ const routePerformance = {
 } satisfies Record<PeriodId, Array<{ name: string; entregas: number; otif: number; costoKm: number; kmVacios: number }>>;
 
 const customerPerformance = [
-  { customer: "Alkosto", assignedVehicles: 10, inUseVehicles: 6, availableVehicles: 4, compliance: 80, utilization: 60, orders: 248, revenue: "$286M", incidents: 7, trend: "-3%" },
-  { customer: "Alimentos Norte", assignedVehicles: 8, inUseVehicles: 7, availableVehicles: 1, compliance: 96, utilization: 88, orders: 284, revenue: "$318M", incidents: 4, trend: "+6%" },
-  { customer: "Farmalog", assignedVehicles: 6, inUseVehicles: 5, availableVehicles: 1, compliance: 98, utilization: 83, orders: 198, revenue: "$221M", incidents: 2, trend: "+11%" },
-  { customer: "Retail Max", assignedVehicles: 12, inUseVehicles: 9, availableVehicles: 3, compliance: 94, utilization: 75, orders: 342, revenue: "$402M", incidents: 9, trend: "+3%" },
-  { customer: "AgroAndes", assignedVehicles: 5, inUseVehicles: 3, availableVehicles: 2, compliance: 95, utilization: 60, orders: 156, revenue: "$144M", incidents: 3, trend: "-1%" },
-  { customer: "TecnoPartes", assignedVehicles: 4, inUseVehicles: 3, availableVehicles: 1, compliance: 91, utilization: 75, orders: 124, revenue: "$119M", incidents: 8, trend: "-4%" },
+  { customer: "Alkosto", assignedVehicles: 10, inUseVehicles: 6, availableVehicles: 4, compliance: 80, utilization: 60, orders: 248, revenue: "$286M", incidents: 7, costPerKm: "$4,920", margin: "18%", trend: "-3%" },
+  { customer: "Alimentos Norte", assignedVehicles: 8, inUseVehicles: 7, availableVehicles: 1, compliance: 96, utilization: 88, orders: 284, revenue: "$318M", incidents: 4, costPerKm: "$4,180", margin: "24%", trend: "+6%" },
+  { customer: "Farmalog", assignedVehicles: 6, inUseVehicles: 5, availableVehicles: 1, compliance: 98, utilization: 83, orders: 198, revenue: "$221M", incidents: 2, costPerKm: "$3,920", margin: "27%", trend: "+11%" },
+  { customer: "Retail Max", assignedVehicles: 12, inUseVehicles: 9, availableVehicles: 3, compliance: 94, utilization: 75, orders: 342, revenue: "$402M", incidents: 9, costPerKm: "$4,360", margin: "21%", trend: "+3%" },
+  { customer: "AgroAndes", assignedVehicles: 5, inUseVehicles: 3, availableVehicles: 2, compliance: 95, utilization: 60, orders: 156, revenue: "$144M", incidents: 3, costPerKm: "$4,070", margin: "20%", trend: "-1%" },
+  { customer: "TecnoPartes", assignedVehicles: 4, inUseVehicles: 3, availableVehicles: 1, compliance: 91, utilization: 75, orders: 124, revenue: "$119M", incidents: 8, costPerKm: "$4,640", margin: "16%", trend: "-4%" },
 ];
 
 const mapVehicles = [
@@ -482,28 +479,12 @@ const mapRoutes = [
   },
 ];
 
-const dailyPerformance = [
-  { name: "Lun", entregas: 940, costo: 42, otif: 94 },
-  { name: "Mar", entregas: 1120, costo: 39, otif: 95 },
-  { name: "Mie", entregas: 1088, costo: 40, otif: 96 },
-  { name: "Jue", entregas: 1236, costo: 37, otif: 97 },
-  { name: "Vie", entregas: 1284, costo: 36, otif: 97 },
-  { name: "Sab", entregas: 860, costo: 41, otif: 95 },
-];
-
 const costBreakdown = [
   { name: "Combustible", value: 42 },
   { name: "Conductor", value: 24 },
   { name: "Peajes", value: 14 },
   { name: "Mantenimiento", value: 12 },
   { name: "Otros", value: 8 },
-];
-
-const moduleCapabilities = [
-  { title: "Operacion", items: ["Ordenes con trazabilidad completa", "Despacho inteligente", "POD con firma, foto y GPS", "Portal cliente y seguimiento publico"] },
-  { title: "Geoespacial", items: ["Mapa vivo de flota", "Geocercas y permanencias", "Rutas con ventanas horarias", "Heatmaps de demanda y rentabilidad"] },
-  { title: "Finanzas", items: ["Costo por km y entrega", "Freight audit", "Liquidacion a conductores", "Rentabilidad por cliente, ruta y zona"] },
-  { title: "IA y automatizacion", items: ["Prediccion de retrasos", "Mantenimiento predictivo", "OCR documental", "Recomendacion de asignaciones"] },
 ];
 
 const integrations = [
@@ -700,7 +681,9 @@ function AtlasTransportClient({ viewId, suiteEnabled = true }: { viewId: ViewId;
 }
 
 function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppData; onExport: () => void; onResolveAlert: (alert: Alert) => void; onReset: () => void }) {
-  const topClient = customerPerformance[0];
+  const priorityClient = customerPerformance[0];
+  const clientsBelowTarget = customerPerformance.filter((client) => client.compliance < 95);
+  const sortedByCompliance = [...customerPerformance].sort((a, b) => b.compliance - a.compliance);
   const totals = customerPerformance.reduce(
     (summary, client) => ({
       assignedVehicles: summary.assignedVehicles + client.assignedVehicles,
@@ -712,6 +695,8 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
     { assignedVehicles: 0, inUseVehicles: 0, availableVehicles: 0, orders: 0, compliance: 0 },
   );
   const averageCompliance = Math.round(totals.compliance / customerPerformance.length);
+  const averageUtilization = Math.round((totals.inUseVehicles / totals.assignedVehicles) * 100);
+  const availability = Math.round((totals.availableVehicles / totals.assignedVehicles) * 100);
 
   return (
     <div className="space-y-5">
@@ -726,32 +711,42 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
           <ActionButton icon={Download} label="Exportar ordenes" onClick={onExport} />
         </div>
       </section>
-      <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
-        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard kpi={{ label: "Cumplimiento promedio", value: `${averageCompliance}%`, delta: `${clientsBelowTarget.length} clientes bajo meta`, target: "Meta > 95%", severity: averageCompliance >= 95 ? "success" : "warning" }} />
+        <KpiCard kpi={{ label: "Flota asignada", value: totals.assignedVehicles.toString(), delta: `${totals.inUseVehicles} en uso`, target: `${totals.availableVehicles} disponibles`, severity: "success" }} />
+        <KpiCard kpi={{ label: "Disponibilidad", value: `${availability}%`, delta: "Vehiculos listos", target: "Patio / reserva", severity: availability >= 20 ? "success" : "warning" }} />
+        <KpiCard kpi={{ label: "Uso de flota", value: `${averageUtilization}%`, delta: "Promedio cartera", target: "Rango 70%-85%", severity: averageUtilization >= 70 && averageUtilization <= 85 ? "success" : "warning" }} />
+      </section>
+      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
+        <article className="rounded-lg border border-amber-200 bg-amber-50/50 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">Cliente top</span>
-              <h3 className="mt-2 text-2xl font-black text-slate-950">{topClient.customer}</h3>
-              <p className="mt-1 text-sm text-slate-500">Prioridad comercial por volumen y seguimiento ejecutivo.</p>
+              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-700">Cliente prioritario</span>
+              <h3 className="mt-2 text-2xl font-black text-slate-950">{priorityClient.customer}</h3>
+              <p className="mt-1 text-sm text-slate-600">Tiene volumen relevante, 10 vehiculos dedicados y cumplimiento por debajo de meta.</p>
             </div>
-            <StatusBadge value={topClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
+            <StatusBadge value={priorityClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Pill icon={<ClipboardCheck className="h-4 w-4" />} label="Cumplimiento" value={`${topClient.compliance}%`} />
-            <Pill icon={<Truck className="h-4 w-4" />} label="Vehiculos totales" value={topClient.assignedVehicles.toString()} />
-            <Pill icon={<Navigation className="h-4 w-4" />} label="En uso" value={topClient.inUseVehicles.toString()} />
-            <Pill icon={<MapPinned className="h-4 w-4" />} label="Disponibles" value={topClient.availableVehicles.toString()} />
+            <Pill icon={<ClipboardCheck className="h-4 w-4" />} label="Cumplimiento" value={`${priorityClient.compliance}%`} />
+            <Pill icon={<Truck className="h-4 w-4" />} label="Vehiculos totales" value={priorityClient.assignedVehicles.toString()} />
+            <Pill icon={<Navigation className="h-4 w-4" />} label="En uso" value={priorityClient.inUseVehicles.toString()} />
+            <Pill icon={<MapPinned className="h-4 w-4" />} label="Disponibles" value={priorityClient.availableVehicles.toString()} />
           </div>
           <div className="mt-5 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500"><span>Uso de flota</span><span>{topClient.utilization}%</span></div>
-            <ProgressBar value={topClient.utilization} />
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500"><span>Cumplimiento SLA</span><span>{topClient.compliance}%</span></div>
-            <ProgressBar value={topClient.compliance} />
+            <div className="flex items-center justify-between text-xs font-bold text-slate-600"><span>Uso de flota</span><span>{priorityClient.utilization}%</span></div>
+            <ProgressBar value={priorityClient.utilization} />
+            <div className="flex items-center justify-between text-xs font-bold text-slate-600"><span>Cumplimiento SLA</span><span>{priorityClient.compliance}%</span></div>
+            <ProgressBar value={priorityClient.compliance} />
+          </div>
+          <div className="mt-5 rounded-lg border border-amber-200 bg-white p-3 text-sm text-slate-700">
+            <strong className="block text-slate-950">Accion recomendada</strong>
+            <span className="mt-1 block">Rebalancear 2 vehiculos disponibles hacia ventanas criticas y revisar causas de no cumplimiento antes del cierre semanal.</span>
           </div>
         </article>
-        <Panel title="Ranking de clientes" action="Descargar">
+        <Panel title="Ranking ejecutivo de clientes" action="Descargar">
           <ChartBox>
-            <BarChart data={customerPerformance} layout="vertical" margin={{ left: 20, right: 20 }}>
+            <BarChart data={sortedByCompliance} layout="vertical" margin={{ left: 20, right: 20 }}>
               <CartesianGrid strokeDasharray="4 4" horizontal={false} />
               <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} />
               <YAxis type="category" dataKey="customer" width={110} tickLine={false} axisLine={false} />
@@ -762,42 +757,39 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
           </ChartBox>
         </Panel>
       </section>
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard kpi={{ label: "Clientes activos", value: customerPerformance.length.toString(), delta: `${totals.orders.toLocaleString("es-CO")} ordenes`, target: "Cartera operativa", severity: "info" }} />
-        <KpiCard kpi={{ label: "Cumplimiento promedio", value: `${averageCompliance}%`, delta: "Todos los clientes", target: "Meta > 95%", severity: averageCompliance >= 95 ? "success" : "warning" }} />
-        <KpiCard kpi={{ label: "Flota asignada", value: totals.assignedVehicles.toString(), delta: `${totals.inUseVehicles} en uso`, target: `${totals.availableVehicles} disponibles`, severity: "success" }} />
-        <KpiCard kpi={{ label: "Cliente en atencion", value: topClient.customer, delta: `${topClient.compliance}% cumplimiento`, target: `${topClient.availableVehicles} disponibles`, severity: "warning" }} />
-      </section>
       <Panel title="Como vamos con cada cliente" action="Descargar">
         <CustomerPerformanceTable />
       </Panel>
-      <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-        <Panel title="Rendimiento semanal" action="Exportar" onAction={onExport}>
+      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <Panel title="Flota por cliente" action="Ver detalle">
           <ChartBox>
-            <AreaChart data={dailyPerformance}>
-              <defs><linearGradient id="deliveries" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#0f766e" stopOpacity={0.35} /><stop offset="100%" stopColor="#0f766e" stopOpacity={0.02} /></linearGradient></defs>
+            <BarChart data={customerPerformance}>
               <CartesianGrid strokeDasharray="4 4" vertical={false} />
-              <XAxis dataKey="name" tickLine={false} axisLine={false} />
+              <XAxis dataKey="customer" tickLine={false} axisLine={false} />
               <YAxis tickLine={false} axisLine={false} />
               <Tooltip />
-              <Area type="monotone" dataKey="entregas" stroke="#0f766e" fill="url(#deliveries)" strokeWidth={3} />
-              <Line type="monotone" dataKey="otif" stroke="#2563eb" strokeWidth={2} />
-            </AreaChart>
+              <Bar dataKey="inUseVehicles" name="En uso" stackId="fleet" fill="#2563eb" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="availableVehicles" name="Disponibles" stackId="fleet" fill="#0f766e" radius={[6, 6, 0, 0]} />
+            </BarChart>
           </ChartBox>
         </Panel>
-        <Panel title="Alertas de excepcion" action="Gestionar">
-          <AlertList items={data.alerts} onResolve={onResolveAlert} />
+        <Panel title="Clientes bajo meta" action="Gestionar">
+          <div className="space-y-3">
+            {clientsBelowTarget.map((client) => (
+              <article key={client.customer} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <strong className="text-sm text-slate-950">{client.customer}</strong>
+                    <p className="mt-1 text-sm text-slate-500">{client.assignedVehicles} vehiculos / {client.availableVehicles} disponibles / {client.incidents} novedades.</p>
+                  </div>
+                  <StatusBadge value={`${client.compliance}%`} />
+                </div>
+                <div className="mt-3"><ProgressBar value={client.compliance} /></div>
+              </article>
+            ))}
+            <AlertList items={data.alerts.slice(0, 2)} onResolve={onResolveAlert} />
+          </div>
         </Panel>
-      </section>
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {moduleCapabilities.map((module) => (
-          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={module.title}>
-            <div className="flex items-center gap-2 text-sm font-black text-slate-950"><Sparkles className="h-4 w-4 text-cyan-700" /> {module.title}</div>
-            <ul className="mt-4 space-y-3">
-              {module.items.map((item) => <li key={item} className="flex gap-2 text-sm text-slate-600"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /> {item}</li>)}
-            </ul>
-          </article>
-        ))}
       </section>
     </div>
   );
