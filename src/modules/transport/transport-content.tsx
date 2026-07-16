@@ -435,14 +435,10 @@ const customerPerformance = [
   { customer: "TecnoPartes", assignedVehicles: 4, inUseVehicles: 3, availableVehicles: 1, compliance: 91, utilization: 75, orders: 124, revenue: "$119M", incidents: 8, costPerKm: "$4,640", margin: "16%", trend: "-4%" },
 ];
 
-type CustomerPerformance = (typeof customerPerformance)[number];
+type CustomerPerformance = (typeof customerPerformance)[number] & { valueAtRisk?: number };
 
 function buildCustomerPerformance(data: AppData): CustomerPerformance[] {
   const byCustomer = new Map<string, CustomerPerformance>();
-
-  customerPerformance.forEach((customer) => {
-    byCustomer.set(customer.customer, { ...customer });
-  });
 
   data.orders.forEach((order) => {
     if (!byCustomer.has(order.customer)) {
@@ -469,7 +465,7 @@ function buildCustomerPerformance(data: AppData): CustomerPerformance[] {
       if (orders.length === 0) return base;
 
       const assignedPlates = new Set(orders.map((order) => order.vehicle).filter((plate) => plate && plate !== "Sin asignar"));
-      const assignedVehicles = Math.max(base.assignedVehicles, assignedPlates.size);
+      const assignedVehicles = assignedPlates.size;
       const inUseVehicles = [...assignedPlates].filter((plate) => {
         const vehicle = data.fleet.find((item) => item.plate === plate);
         const activeOrder = orders.some((order) => order.vehicle === plate && ["En ruta", "En riesgo", "Incidencia"].includes(order.status));
@@ -482,6 +478,7 @@ function buildCustomerPerformance(data: AppData): CustomerPerformance[] {
       const expenseValue = data.expenses.filter((expense) => orders.some((order) => order.id === expense.orderId)).reduce((sum, expense) => sum + expense.amount, 0);
       const margin = revenueValue > 0 ? Math.round(((revenueValue - expenseValue) / revenueValue) * 100) : Number.parseInt(base.margin, 10) || 0;
       const incidents = orders.filter((order) => ["En riesgo", "Incidencia"].includes(order.status)).length;
+      const valueAtRisk = orders.filter((order) => ["En riesgo", "Incidencia"].includes(order.status) || compliance < 95).reduce((sum, order) => sum + parseTransportMoney(order.value), 0);
 
       return {
         ...base,
@@ -495,7 +492,8 @@ function buildCustomerPerformance(data: AppData): CustomerPerformance[] {
         incidents,
         costPerKm: formatCompactMoney(orders.length > 0 ? Math.round(expenseValue / orders.length) : parseTransportMoney(base.costPerKm)),
         margin: `${margin}%`,
-        trend: compliance >= base.compliance ? `+${compliance - base.compliance}%` : `${compliance - base.compliance}%`,
+        trend: compliance >= 95 ? "En meta" : `${95 - compliance} pts bajo SLA`,
+        valueAtRisk,
       };
     })
     .sort((a, b) => b.orders - a.orders || b.compliance - a.compliance);
@@ -751,6 +749,7 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
   const clientsBelowTarget = customerMetrics.filter((client) => client.compliance < 95);
   const sortedByCompliance = [...customerMetrics].sort((a, b) => b.compliance - a.compliance);
   const priorityClient = [...customerMetrics].sort((a, b) => a.compliance - b.compliance || b.orders - a.orders)[0] ?? customerMetrics[0];
+  const riskValue = clientsBelowTarget.reduce((sum, client) => sum + (client.valueAtRisk ?? 0), 0);
   const totals = customerMetrics.reduce(
     (summary, client) => ({
       assignedVehicles: summary.assignedVehicles + client.assignedVehicles,
@@ -762,8 +761,11 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
     { assignedVehicles: 0, inUseVehicles: 0, availableVehicles: 0, orders: 0, compliance: 0 },
   );
   const averageCompliance = customerMetrics.length ? Math.round(totals.compliance / customerMetrics.length) : 0;
-  const averageUtilization = totals.assignedVehicles ? Math.round((totals.inUseVehicles / totals.assignedVehicles) * 100) : 0;
   const availability = totals.assignedVehicles ? Math.round((totals.availableVehicles / totals.assignedVehicles) * 100) : 0;
+
+  if (!priorityClient) {
+    return <EmptyState icon={Gauge} title="Sin datos ejecutivos" description="Crea ordenes y asigna vehiculos para generar indicadores por cliente." />;
+  }
 
   return (
     <div className="space-y-5">
@@ -779,10 +781,10 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
         </div>
       </section>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard kpi={{ label: "Cumplimiento promedio", value: `${averageCompliance}%`, delta: `${clientsBelowTarget.length} clientes bajo meta`, target: "Meta > 95%", severity: averageCompliance >= 95 ? "success" : "warning" }} />
+        <KpiCard kpi={{ label: "Cumplimiento promedio", value: `${averageCompliance}%`, delta: `${clientsBelowTarget.length} clientes con SLA bajo`, target: "Meta > 95%", severity: averageCompliance >= 95 ? "success" : "warning" }} />
         <KpiCard kpi={{ label: "Flota asignada", value: totals.assignedVehicles.toString(), delta: `${totals.inUseVehicles} en uso`, target: `${totals.availableVehicles} disponibles`, severity: "success" }} />
         <KpiCard kpi={{ label: "Disponibilidad", value: `${availability}%`, delta: "Vehiculos listos", target: "Patio / reserva", severity: availability >= 20 ? "success" : "warning" }} />
-        <KpiCard kpi={{ label: "Uso de flota", value: `${averageUtilization}%`, delta: "Promedio cartera", target: "Rango 70%-85%", severity: averageUtilization >= 70 && averageUtilization <= 85 ? "success" : "warning" }} />
+        <KpiCard kpi={{ label: "Valor en riesgo", value: formatCompactMoney(riskValue), delta: "Ordenes con SLA bajo", target: "Gestion comercial", severity: riskValue > 0 ? "warning" : "success" }} />
       </section>
       <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -791,7 +793,7 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
               <div className="min-w-0">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-700">Cliente prioritario</span>
                 <h3 className="mt-2 text-2xl font-black text-slate-950">{priorityClient.customer}</h3>
-              <p className="mt-1 max-w-xl text-sm leading-5 text-slate-600">Cuenta critica: {priorityClient.assignedVehicles} vehiculos dedicados, {priorityClient.availableVehicles} disponibles y cumplimiento debajo de la meta ejecutiva.</p>
+                <p className="mt-1 max-w-xl text-sm leading-5 text-slate-600">{priorityClientSummary(priorityClient)}</p>
               </div>
               <StatusBadge value={priorityClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
             </div>
@@ -807,33 +809,43 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
             </div>
             <div className="mt-5 border-t border-slate-200 pt-4">
               <strong className="block text-sm font-black text-slate-950">Plan inmediato</strong>
-              <p className="mt-1 text-sm leading-5 text-slate-600">Reasignar 2 vehiculos de reserva a ventanas criticas y revisar novedades antes del cierre semanal.</p>
+              <p className="mt-1 text-sm leading-5 text-slate-600">{priorityClientAction(priorityClient)}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <SmallLinkButton href="/transport/orders">Gestionar ordenes</SmallLinkButton>
+                <SmallLinkButton href="/transport/control">Ver torre de control</SmallLinkButton>
+              </div>
             </div>
           </div>
         </article>
-        <Panel title="Ranking ejecutivo de clientes" action="Descargar">
+        <Panel title="Ranking ejecutivo de clientes" action="Ver ordenes" actionHref="/transport/orders">
           <CustomerRankingBoard clients={sortedByCompliance} />
         </Panel>
       </section>
-      <Panel title="Como vamos con cada cliente" action="Descargar">
+      <Panel title="Como vamos con cada cliente" action="Ver ordenes" actionHref="/transport/orders">
         <CustomerPerformanceTable clients={customerMetrics} />
       </Panel>
       <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <Panel title="Flota por cliente" action="Ver detalle">
+        <Panel title="Flota por cliente" action="Ver flota" actionHref="/transport/fleet">
           <FleetAllocationBoard clients={customerMetrics} />
         </Panel>
-        <Panel title="Clientes bajo meta" action="Gestionar">
+        <Panel title="Clientes con SLA en riesgo" action="Gestionar" actionHref="/transport/control">
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <ExecutiveSummary label="Clientes" value={clientsBelowTarget.length.toString()} />
+            <ExecutiveSummary label="Valor en riesgo" value={formatCompactMoney(riskValue)} />
+            <ExecutiveSummary label="Ordenes afectadas" value={clientsBelowTarget.reduce((sum, client) => sum + client.orders, 0).toString()} />
+          </div>
           <div className="space-y-3">
             {clientsBelowTarget.map((client) => (
               <article key={client.customer} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <strong className="text-sm text-slate-950">{client.customer}</strong>
-                    <p className="mt-1 text-sm text-slate-500">{client.assignedVehicles} vehiculos / {client.availableVehicles} disponibles / {client.incidents} novedades.</p>
+                    <p className="mt-1 text-sm text-slate-500">{formatCompactMoney(client.valueAtRisk ?? 0)} en riesgo / {client.assignedVehicles} vehiculos / {client.incidents} novedades.</p>
                   </div>
                   <StatusBadge value={`${client.compliance}%`} />
                 </div>
                 <div className="mt-3"><ProgressBar value={client.compliance} /></div>
+                <div className="mt-3"><SmallLinkButton href="/transport/orders">Gestionar ordenes</SmallLinkButton></div>
               </article>
             ))}
             <AlertList items={data.alerts.slice(0, 2)} onResolve={onResolveAlert} />
@@ -1165,12 +1177,16 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
   );
 }
 
-function Panel({ title, action, children, onAction }: { title: string; action: string; children: ReactNode; onAction?: () => void }) {
+function Panel({ title, action, children, onAction, actionHref }: { title: string; action: string; children: ReactNode; onAction?: () => void; actionHref?: string }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <header className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-base font-black text-slate-950">{title}</h2>
-        <SmallButton onClick={onAction}>{action === "Exportar" || action === "Descargar" ? <Download className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}{action}</SmallButton>
+        {actionHref ? (
+          <SmallLinkButton href={actionHref}><ArrowUpRight className="h-4 w-4" />{action}</SmallLinkButton>
+        ) : (
+          <SmallButton onClick={onAction}>{action === "Exportar" || action === "Descargar" ? <Download className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}{action}</SmallButton>
+        )}
       </header>
       {children}
     </section>
@@ -1969,14 +1985,14 @@ function CustomerRankingBoard({ clients }: { clients: CustomerPerformance[] }) {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <ExecutiveSummary label="Lider" value={`${leader.customer} ${leader.compliance}%`} />
-        <ExecutiveSummary label="Bajo meta" value={`${atRisk.length} clientes`} />
+        <ExecutiveSummary label="SLA en riesgo" value={`${atRisk.length} clientes`} />
         <ExecutiveSummary label="Foco" value={`${focusClient.customer} ${focusClient.compliance}%`} />
       </div>
       <div className="space-y-2">
         {clients.map((client, index) => {
           const status = rankingStatus(client.compliance);
           return (
-            <article key={client.customer} className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 sm:grid-cols-[36px_minmax(0,1fr)_72px] sm:items-center">
+            <article key={client.customer} className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 sm:grid-cols-[36px_minmax(0,1fr)_72px_auto] sm:items-center">
               <span className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-black ${index === 0 ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>{index + 1}</span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1998,6 +2014,7 @@ function CustomerRankingBoard({ clients }: { clients: CustomerPerformance[] }) {
                 <span className="text-2xl font-black text-slate-950">{client.compliance}%</span>
                 <p className="text-xs font-black text-slate-500">{client.compliance < target ? "Priorizar" : "Ok"}</p>
               </div>
+              <SmallLinkButton href="/transport/orders">Gestionar</SmallLinkButton>
             </article>
           );
         })}
@@ -2024,29 +2041,30 @@ function FleetAllocationBoard({ clients }: { clients: CustomerPerformance[] }) {
         <ExecutiveSummary label="Reserva" value={totals.available.toString()} />
       </div>
       <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-500">
-        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-cyan-600" /> En uso</span>
-        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Disponible</span>
+        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-slate-900" /> En uso</span>
+        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Reserva</span>
       </div>
       <div className="space-y-3">
         {clients.map((client) => {
-          const useWidth = Math.round((client.inUseVehicles / client.assignedVehicles) * 100);
-          const availableWidth = 100 - useWidth;
+          const useWidth = client.assignedVehicles > 0 ? Math.round((client.inUseVehicles / client.assignedVehicles) * 100) : 0;
+          const availableWidth = client.assignedVehicles > 0 ? 100 - useWidth : 0;
           return (
-            <article key={client.customer} className="grid gap-2 md:grid-cols-[130px_minmax(0,1fr)_72px] md:items-center">
+            <article key={client.customer} className="grid gap-2 md:grid-cols-[130px_minmax(0,1fr)_72px_auto] md:items-center">
               <div className="min-w-0">
                 <h3 className="truncate text-sm font-black text-slate-950">{client.customer}</h3>
                 <p className="text-xs font-bold text-slate-500">{client.utilization}% uso</p>
               </div>
               <div className="h-8 overflow-hidden rounded-md bg-slate-100">
                 <div className="flex h-full">
-                  <span className="bg-cyan-600" style={{ width: `${useWidth}%` }} aria-label={`${client.inUseVehicles} vehiculos en uso`} />
-                  <span className="bg-emerald-600" style={{ width: `${availableWidth}%` }} aria-label={`${client.availableVehicles} vehiculos disponibles`} />
+                  <span className="bg-slate-900" style={{ width: `${useWidth}%` }} aria-label={`${client.inUseVehicles} vehiculos en uso`} />
+                  <span className="bg-slate-300" style={{ width: `${availableWidth}%` }} aria-label={`${client.availableVehicles} vehiculos en reserva`} />
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 md:block md:text-right">
                 <strong className="text-sm font-black text-slate-950">{client.assignedVehicles}</strong>
                 <p className="text-xs font-bold text-slate-500">{client.inUseVehicles} / {client.availableVehicles}</p>
               </div>
+              <SmallLinkButton href="/transport/fleet">Revisar</SmallLinkButton>
             </article>
           );
         })}
@@ -2087,7 +2105,7 @@ function PriorityMeter({ label, value, target, tone }: { label: string; value: n
 
 function CustomerPerformanceTable({ clients = customerPerformance }: { clients?: CustomerPerformance[] }) {
   return (
-    <DataPanel columns={["Cliente", "Cumplimiento", "Vehiculos", "En uso", "Disponibles", "Uso flota", "Ordenes", "Facturacion", "Novedades"]}>
+    <DataPanel columns={["Cliente", "Cumplimiento", "Vehiculos", "En uso", "Disponibles", "Uso flota", "Ordenes", "Facturacion", "Valor riesgo", "Novedades", "Accion"]}>
       {clients.map((customer) => (
         <tr key={customer.customer}>
           <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-950">{customer.customer}</td>
@@ -2103,7 +2121,9 @@ function CustomerPerformanceTable({ clients = customerPerformance }: { clients?:
           <td className="min-w-32 px-4 py-3"><ProgressBar value={customer.utilization} /></td>
           <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.orders}</td>
           <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.revenue}</td>
-          <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={customer.incidents > 6 || customer.compliance < 90 ? "En riesgo" : "Controlado"} /></td>
+          <td className="whitespace-nowrap px-4 py-3 text-sm font-bold text-slate-700">{formatCompactMoney(customer.valueAtRisk ?? 0)}</td>
+          <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={customer.incidents > 0 || customer.compliance < 95 ? `${customer.incidents} nov.` : "Controlado"} /></td>
+          <td className="whitespace-nowrap px-4 py-3"><SmallLinkButton href="/transport/orders">Gestionar</SmallLinkButton></td>
         </tr>
       ))}
     </DataPanel>
@@ -2213,6 +2233,17 @@ function formatCompactMoney(value: number) {
   return money.format(value);
 }
 
+function priorityClientSummary(client: CustomerPerformance) {
+  return `${client.orders} ordenes activas, ${client.assignedVehicles} vehiculos asignados, ${client.availableVehicles} en reserva y ${formatCompactMoney(client.valueAtRisk ?? 0)} en riesgo por SLA.`;
+}
+
+function priorityClientAction(client: CustomerPerformance) {
+  if (client.incidents > 0) return `Gestionar ${client.incidents} novedades y revisar las ordenes del cliente en torre de control.`;
+  if (client.availableVehicles > 0 && client.compliance < 95) return `Reasignar reserva disponible y priorizar las ordenes pendientes del cliente.`;
+  if (client.assignedVehicles === 0) return "Asignar vehiculo a las ordenes sin placa antes de confirmar despacho.";
+  return "Monitorear cumplimiento y mantener seguimiento operativo hasta cierre de entrega.";
+}
+
 function MeterBar({ value, tone, marker }: { value: number; tone: "success" | "warning" | "danger" | "info"; marker?: number }) {
   const width = Math.min(100, Math.max(0, value));
   const markerPosition = typeof marker === "number" ? Math.min(100, Math.max(0, marker)) : undefined;
@@ -2250,6 +2281,7 @@ function badgeClass(value: string) {
   if (["entregada", "disponible", "en patio", "activo", "listo", "aprobado", "pod", "aceptada", "legalizado"].includes(normalized)) return "border border-emerald-200 bg-emerald-50 text-emerald-700";
   if (["en riesgo", "incidencia", "critica", "alta", "mantenimiento", "detenido"].includes(normalized)) return "border border-rose-200 bg-rose-50 text-rose-700";
   if (["asignada", "planificada", "media", "revision", "abierto", "diseno"].includes(normalized)) return "border border-amber-200 bg-amber-50 text-amber-700";
+  if (normalized.includes("nov")) return "border border-amber-200 bg-amber-50 text-amber-700";
   if (["en ruta", "en turno", "suite", "api"].includes(normalized)) return "border border-cyan-200 bg-cyan-50 text-cyan-700";
   return "border border-slate-200 bg-slate-50 text-slate-700";
 }
