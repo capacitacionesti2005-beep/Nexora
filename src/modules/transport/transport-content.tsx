@@ -435,6 +435,8 @@ const customerPerformance = [
   { customer: "TecnoPartes", assignedVehicles: 4, inUseVehicles: 3, availableVehicles: 1, compliance: 91, utilization: 75, orders: 124, revenue: "$119M", incidents: 8, costPerKm: "$4,640", margin: "16%", trend: "-4%" },
 ];
 
+type CustomerPerformance = (typeof customerPerformance)[number];
+
 const mapVehicles = [
   { plate: "TRK-482", position: [4.735, -74.104] as [number, number], status: "En ruta" as VehicleStatus, route: "R-18", eta: "15:42" },
   { plate: "VAN-221", position: [4.639, -74.084] as [number, number], status: "En ruta" as VehicleStatus, route: "R-24", eta: "14:20" },
@@ -745,16 +747,7 @@ function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppD
           </div>
         </article>
         <Panel title="Ranking ejecutivo de clientes" action="Descargar">
-          <ChartBox>
-            <BarChart data={sortedByCompliance} layout="vertical" margin={{ left: 20, right: 20 }}>
-              <CartesianGrid strokeDasharray="4 4" horizontal={false} />
-              <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="customer" width={110} tickLine={false} axisLine={false} />
-              <Tooltip />
-              <Bar dataKey="compliance" name="Cumplimiento" fill="#0f766e" radius={[0, 6, 6, 0]} />
-              <Bar dataKey="utilization" name="Uso flota" fill="#2563eb" radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ChartBox>
+          <CustomerRankingBoard clients={sortedByCompliance} />
         </Panel>
       </section>
       <Panel title="Como vamos con cada cliente" action="Descargar">
@@ -1908,6 +1901,93 @@ function DataPanel({ columns, children }: { columns: string[]; children: ReactNo
   return <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><div className="overflow-x-auto"><table className="min-w-full border-collapse text-left text-sm"><thead className="bg-slate-50 text-[11px] font-black uppercase tracking-[0.08em] text-slate-500"><tr>{columns.map((column) => <th key={column} className="whitespace-nowrap border-b border-slate-200 px-4 py-3">{column}</th>)}</tr></thead><tbody className="divide-y divide-slate-100 text-slate-600">{children}</tbody></table></div></div>;
 }
 
+function CustomerRankingBoard({ clients }: { clients: CustomerPerformance[] }) {
+  const target = 95;
+  if (clients.length === 0) return <p className="py-8 text-center text-sm text-slate-500">Sin clientes para ranking.</p>;
+
+  const leader = clients[0]!;
+  const atRisk = clients.filter((client) => client.compliance < target);
+  const bestUse = clients.reduce((best, client) => (client.utilization > best.utilization ? client : best), leader);
+  const focusClient = atRisk.length > 0 ? atRisk[atRisk.length - 1] : undefined;
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="min-w-0">
+        <div className="hidden grid-cols-[48px_minmax(160px,1fr)_minmax(180px,1.2fr)_minmax(150px,0.8fr)_90px] gap-4 border-b border-slate-200 pb-3 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500 md:grid">
+          <span>Rank</span>
+          <span>Cliente</span>
+          <span>Cumplimiento SLA</span>
+          <span>Uso de flota</span>
+          <span className="text-right">Accion</span>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {clients.map((client, index) => {
+            const status = rankingStatus(client.compliance);
+            return (
+              <article key={client.customer} className="grid gap-3 py-4 md:grid-cols-[48px_minmax(160px,1fr)_minmax(180px,1.2fr)_minmax(150px,0.8fr)_90px] md:items-center">
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-black ${index === 0 ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>
+                    {index + 1}
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 md:hidden">Rank</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-sm font-black text-slate-950">{client.customer}</h3>
+                    <span className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-xs font-black ${status.className}`}>{status.label}</span>
+                  </div>
+                  <p className="mt-1 text-xs font-bold text-slate-500">{client.assignedVehicles} vehiculos asignados / {client.availableVehicles} disponibles</p>
+                </div>
+                <div className="min-w-0">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold text-slate-500">Meta {target}%</span>
+                    <strong className="text-lg font-black text-slate-950">{client.compliance}%</strong>
+                  </div>
+                  <MeterBar value={client.compliance} tone={status.tone} marker={target} />
+                </div>
+                <div className="min-w-0">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold text-slate-500">{client.inUseVehicles} en ruta</span>
+                    <strong className="text-sm font-black text-slate-700">{client.utilization}%</strong>
+                  </div>
+                  <MeterBar value={client.utilization} tone="info" />
+                </div>
+                <div className="text-left md:text-right">
+                  <span className="text-sm font-black text-slate-950">{client.compliance < target ? "Priorizar" : "Mantener"}</span>
+                  <p className="mt-1 text-xs font-bold text-slate-500">{client.incidents} nov.</p>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+      <aside className="rounded-md bg-slate-950 p-4 text-white">
+        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">Lectura ejecutiva</span>
+        <strong className="mt-3 block text-2xl font-black">{leader.customer}</strong>
+        <p className="mt-1 text-sm leading-5 text-slate-300">lidera el cumplimiento con {leader.compliance}% y margen {leader.margin}.</p>
+        <dl className="mt-5 grid grid-cols-2 gap-3">
+          <div>
+            <dt className="text-xs font-bold text-slate-400">Bajo meta</dt>
+            <dd className="mt-1 text-xl font-black">{atRisk.length}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold text-slate-400">Mayor uso</dt>
+            <dd className="mt-1 text-xl font-black">{bestUse.utilization}%</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold text-slate-400">Cliente foco</dt>
+            <dd className="mt-1 text-sm font-black">{focusClient?.customer ?? "Sin riesgo"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold text-slate-400">Meta SLA</dt>
+            <dd className="mt-1 text-xl font-black">{target}%</dd>
+          </div>
+        </dl>
+      </aside>
+    </div>
+  );
+}
+
 function CustomerPerformanceTable() {
   return (
     <DataPanel columns={["Cliente", "Cumplimiento", "Vehiculos", "En uso", "Disponibles", "Uso flota", "Ordenes", "Facturacion", "Novedades"]}>
@@ -2009,6 +2089,25 @@ function SeverityDot({ severity }: { severity: Severity }) {
 
 function ProgressBar({ value }: { value: number }) {
   return <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-label={`${value}%`}><span className="block h-full rounded-full bg-cyan-500" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} /></div>;
+}
+
+function MeterBar({ value, tone, marker }: { value: number; tone: "success" | "warning" | "danger" | "info"; marker?: number }) {
+  const width = Math.min(100, Math.max(0, value));
+  const markerPosition = typeof marker === "number" ? Math.min(100, Math.max(0, marker)) : undefined;
+  const toneClass = tone === "success" ? "bg-emerald-600" : tone === "warning" ? "bg-amber-500" : tone === "danger" ? "bg-rose-600" : "bg-cyan-600";
+
+  return (
+    <div className="relative h-2.5 rounded-full bg-slate-100" aria-label={`${value}%`}>
+      <span className={`block h-full rounded-full ${toneClass}`} style={{ width: `${width}%` }} />
+      {typeof markerPosition === "number" ? <span className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-slate-500" style={{ left: `${markerPosition}%` }} aria-hidden="true" /> : null}
+    </div>
+  );
+}
+
+function rankingStatus(compliance: number) {
+  if (compliance >= 95) return { label: "Sobre meta", tone: "success" as const, className: "border border-emerald-200 bg-emerald-50 text-emerald-700" };
+  if (compliance >= 90) return { label: "Revisar", tone: "warning" as const, className: "border border-amber-200 bg-amber-50 text-amber-700" };
+  return { label: "Critico", tone: "danger" as const, className: "border border-rose-200 bg-rose-50 text-rose-700" };
 }
 
 function severityProgress(severity: Severity) {
