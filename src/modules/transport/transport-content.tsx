@@ -65,7 +65,7 @@ type OrderStatus = "Planificada" | "Asignada" | "En ruta" | "En riesgo" | "Entre
 type VehicleStatus = "En patio" | "En ruta" | "Mantenimiento" | "Detenido";
 type DriverStatus = "Disponible" | "En turno" | "Descanso" | "Bloqueado";
 type ViewId = "dashboard" | "control" | "orders" | "fleet" | "drivers" | "routes" | "maintenance" | "costs" | "finance" | "analytics" | "integrations" | "driver";
-type PeriodId = "today" | "month" | "year";
+type PeriodId = "day" | "week" | "month";
 
 export type TransportModule = {
   id: ViewId;
@@ -407,11 +407,19 @@ const todayRoutes = [
 ];
 
 const routePerformance = {
-  today: [
+  day: [
     { name: "R-18", entregas: 42, otif: 96, costoKm: 4180, kmVacios: 14 },
     { name: "R-24", entregas: 31, otif: 98, costoKm: 3920, kmVacios: 8 },
     { name: "R-31", entregas: 56, otif: 94, costoKm: 4360, kmVacios: 19 },
     { name: "R-45", entregas: 37, otif: 95, costoKm: 4070, kmVacios: 11 },
+  ],
+  week: [
+    { name: "Lun", entregas: 940, otif: 94, costoKm: 4310, kmVacios: 15 },
+    { name: "Mar", entregas: 1120, otif: 95, costoKm: 4240, kmVacios: 13 },
+    { name: "Mie", entregas: 1088, otif: 96, costoKm: 4190, kmVacios: 12 },
+    { name: "Jue", entregas: 1236, otif: 97, costoKm: 4110, kmVacios: 10 },
+    { name: "Vie", entregas: 1284, otif: 97, costoKm: 4090, kmVacios: 10 },
+    { name: "Sab", entregas: 860, otif: 95, costoKm: 4210, kmVacios: 12 },
   ],
   month: [
     { name: "Sem 1", entregas: 5840, otif: 94, costoKm: 4310, kmVacios: 15 },
@@ -419,22 +427,15 @@ const routePerformance = {
     { name: "Sem 3", entregas: 6488, otif: 97, costoKm: 4110, kmVacios: 10 },
     { name: "Sem 4", entregas: 6024, otif: 96, costoKm: 4180, kmVacios: 11 },
   ],
-  year: [
-    { name: "Ene", entregas: 18240, otif: 93, costoKm: 4450, kmVacios: 16 },
-    { name: "Feb", entregas: 19680, otif: 94, costoKm: 4380, kmVacios: 15 },
-    { name: "Mar", entregas: 21440, otif: 95, costoKm: 4290, kmVacios: 13 },
-    { name: "Abr", entregas: 22620, otif: 96, costoKm: 4210, kmVacios: 12 },
-    { name: "May", entregas: 23860, otif: 96, costoKm: 4180, kmVacios: 11 },
-    { name: "Jun", entregas: 24562, otif: 97, costoKm: 4090, kmVacios: 10 },
-  ],
 } satisfies Record<PeriodId, Array<{ name: string; entregas: number; otif: number; costoKm: number; kmVacios: number }>>;
 
 const customerPerformance = [
-  { customer: "Alimentos Norte", orders: 284, otif: 96, revenue: "$318M", incidents: 4, trend: "+6%" },
-  { customer: "Farmalog", orders: 198, otif: 98, revenue: "$221M", incidents: 2, trend: "+11%" },
-  { customer: "Retail Max", orders: 342, otif: 94, revenue: "$402M", incidents: 9, trend: "+3%" },
-  { customer: "AgroAndes", orders: 156, otif: 95, revenue: "$144M", incidents: 3, trend: "-1%" },
-  { customer: "TecnoPartes", orders: 124, otif: 91, revenue: "$119M", incidents: 8, trend: "-4%" },
+  { customer: "Alkosto", assignedVehicles: 10, inUseVehicles: 6, availableVehicles: 4, compliance: 80, utilization: 60, orders: 248, revenue: "$286M", incidents: 7, trend: "-3%" },
+  { customer: "Alimentos Norte", assignedVehicles: 8, inUseVehicles: 7, availableVehicles: 1, compliance: 96, utilization: 88, orders: 284, revenue: "$318M", incidents: 4, trend: "+6%" },
+  { customer: "Farmalog", assignedVehicles: 6, inUseVehicles: 5, availableVehicles: 1, compliance: 98, utilization: 83, orders: 198, revenue: "$221M", incidents: 2, trend: "+11%" },
+  { customer: "Retail Max", assignedVehicles: 12, inUseVehicles: 9, availableVehicles: 3, compliance: 94, utilization: 75, orders: 342, revenue: "$402M", incidents: 9, trend: "+3%" },
+  { customer: "AgroAndes", assignedVehicles: 5, inUseVehicles: 3, availableVehicles: 2, compliance: 95, utilization: 60, orders: 156, revenue: "$144M", incidents: 3, trend: "-1%" },
+  { customer: "TecnoPartes", assignedVehicles: 4, inUseVehicles: 3, availableVehicles: 1, compliance: 91, utilization: 75, orders: 124, revenue: "$119M", incidents: 8, trend: "-4%" },
 ];
 
 const mapVehicles = [
@@ -699,22 +700,77 @@ function AtlasTransportClient({ viewId, suiteEnabled = true }: { viewId: ViewId;
 }
 
 function DashboardView({ data, onExport, onResolveAlert, onReset }: { data: AppData; onExport: () => void; onResolveAlert: (alert: Alert) => void; onReset: () => void }) {
+  const topClient = customerPerformance[0];
+  const totals = customerPerformance.reduce(
+    (summary, client) => ({
+      assignedVehicles: summary.assignedVehicles + client.assignedVehicles,
+      inUseVehicles: summary.inUseVehicles + client.inUseVehicles,
+      availableVehicles: summary.availableVehicles + client.availableVehicles,
+      orders: summary.orders + client.orders,
+      compliance: summary.compliance + client.compliance,
+    }),
+    { assignedVehicles: 0, inUseVehicles: 0, availableVehicles: 0, orders: 0, compliance: 0 },
+  );
+  const averageCompliance = Math.round(totals.compliance / customerPerformance.length);
+
   return (
     <div className="space-y-5">
       <section className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Nexora</div>
-          <h2 className="mt-2 text-xl font-black text-slate-950">Centro de control de transporte</h2>
-          <p className="mt-1 text-sm text-slate-500">Operacion, flota, servicio, costos y decisiones asistidas desde una sola consola.</p>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Transportes Gran Bretana</div>
+          <h2 className="mt-2 text-xl font-black text-slate-950">Ejecutivo por cliente</h2>
+          <p className="mt-1 text-sm text-slate-500">Cumplimiento, disponibilidad y uso de la flota subcontratada que gestionamos para cada cliente.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ActionButton icon={RefreshCcw} label="Reiniciar demo" variant="secondary" onClick={onReset} />
           <ActionButton icon={Download} label="Exportar ordenes" onClick={onExport} />
         </div>
       </section>
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {data.kpis.map((kpi) => <KpiCard key={kpi.label} kpi={kpi} />)}
+      <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">Cliente top</span>
+              <h3 className="mt-2 text-2xl font-black text-slate-950">{topClient.customer}</h3>
+              <p className="mt-1 text-sm text-slate-500">Prioridad comercial por volumen y seguimiento ejecutivo.</p>
+            </div>
+            <StatusBadge value={topClient.compliance < 90 ? "En riesgo" : "Cumplido"} />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Pill icon={<ClipboardCheck className="h-4 w-4" />} label="Cumplimiento" value={`${topClient.compliance}%`} />
+            <Pill icon={<Truck className="h-4 w-4" />} label="Vehiculos totales" value={topClient.assignedVehicles.toString()} />
+            <Pill icon={<Navigation className="h-4 w-4" />} label="En uso" value={topClient.inUseVehicles.toString()} />
+            <Pill icon={<MapPinned className="h-4 w-4" />} label="Disponibles" value={topClient.availableVehicles.toString()} />
+          </div>
+          <div className="mt-5 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-500"><span>Uso de flota</span><span>{topClient.utilization}%</span></div>
+            <ProgressBar value={topClient.utilization} />
+            <div className="flex items-center justify-between text-xs font-bold text-slate-500"><span>Cumplimiento SLA</span><span>{topClient.compliance}%</span></div>
+            <ProgressBar value={topClient.compliance} />
+          </div>
+        </article>
+        <Panel title="Ranking de clientes" action="Descargar">
+          <ChartBox>
+            <BarChart data={customerPerformance} layout="vertical" margin={{ left: 20, right: 20 }}>
+              <CartesianGrid strokeDasharray="4 4" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey="customer" width={110} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Bar dataKey="compliance" name="Cumplimiento" fill="#0f766e" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="utilization" name="Uso flota" fill="#2563eb" radius={[0, 6, 6, 0]} />
+            </BarChart>
+          </ChartBox>
+        </Panel>
       </section>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard kpi={{ label: "Clientes activos", value: customerPerformance.length.toString(), delta: `${totals.orders.toLocaleString("es-CO")} ordenes`, target: "Cartera operativa", severity: "info" }} />
+        <KpiCard kpi={{ label: "Cumplimiento promedio", value: `${averageCompliance}%`, delta: "Todos los clientes", target: "Meta > 95%", severity: averageCompliance >= 95 ? "success" : "warning" }} />
+        <KpiCard kpi={{ label: "Flota asignada", value: totals.assignedVehicles.toString(), delta: `${totals.inUseVehicles} en uso`, target: `${totals.availableVehicles} disponibles`, severity: "success" }} />
+        <KpiCard kpi={{ label: "Cliente en atencion", value: topClient.customer, delta: `${topClient.compliance}% cumplimiento`, target: `${topClient.availableVehicles} disponibles`, severity: "warning" }} />
+      </section>
+      <Panel title="Como vamos con cada cliente" action="Descargar">
+        <CustomerPerformanceTable />
+      </Panel>
       <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
         <Panel title="Rendimiento semanal" action="Exportar" onAction={onExport}>
           <ChartBox>
@@ -835,7 +891,7 @@ function DriversView({ drivers, activity }: { drivers: Driver[]; activity: Activ
 }
 
 function RoutesView() {
-  const [period, setPeriod] = useState<PeriodId>("month");
+  const [period, setPeriod] = useState<PeriodId>("day");
   const performance = routePerformance[period];
   const totals = {
     routesToday: todayRoutes.length,
@@ -884,9 +940,9 @@ function RoutesView() {
       <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <Panel title={`Comportamiento de rutas - ${periodLabel(period)}`} action="Exportar">
           <div className="mb-4 flex flex-wrap gap-2">
-            <SegmentChip active={period === "today"} onClick={() => setPeriod("today")}>Hoy</SegmentChip>
+            <SegmentChip active={period === "day"} onClick={() => setPeriod("day")}>Dia</SegmentChip>
+            <SegmentChip active={period === "week"} onClick={() => setPeriod("week")}>Semana</SegmentChip>
             <SegmentChip active={period === "month"} onClick={() => setPeriod("month")}>Mensual</SegmentChip>
-            <SegmentChip active={period === "year"} onClick={() => setPeriod("year")}>Anual</SegmentChip>
           </div>
           <ChartBox>
             <LineChart data={performance}>
@@ -917,18 +973,7 @@ function RoutesView() {
         </div>
       </section>
       <Panel title="Como vamos con cada cliente" action="Descargar">
-        <DataPanel columns={["Cliente", "Ordenes", "OTIF", "Facturacion", "Incidentes", "Tendencia"]}>
-          {customerPerformance.map((customer) => (
-            <tr key={customer.customer}>
-              <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-950">{customer.customer}</td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.orders}</td>
-              <td className="min-w-32 px-4 py-3"><ProgressBar value={customer.otif} /></td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.revenue}</td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.incidents}</td>
-              <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={customer.trend.startsWith("-") ? "En riesgo" : customer.trend} /></td>
-            </tr>
-          ))}
-        </DataPanel>
+        <CustomerPerformanceTable />
       </Panel>
     </div>
   );
@@ -1871,6 +1916,31 @@ function DataPanel({ columns, children }: { columns: string[]; children: ReactNo
   return <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><div className="overflow-x-auto"><table className="min-w-full border-collapse text-left text-sm"><thead className="bg-slate-50 text-[11px] font-black uppercase tracking-[0.08em] text-slate-500"><tr>{columns.map((column) => <th key={column} className="whitespace-nowrap border-b border-slate-200 px-4 py-3">{column}</th>)}</tr></thead><tbody className="divide-y divide-slate-100 text-slate-600">{children}</tbody></table></div></div>;
 }
 
+function CustomerPerformanceTable() {
+  return (
+    <DataPanel columns={["Cliente", "Cumplimiento", "Vehiculos", "En uso", "Disponibles", "Uso flota", "Ordenes", "Facturacion", "Novedades"]}>
+      {customerPerformance.map((customer) => (
+        <tr key={customer.customer}>
+          <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-950">{customer.customer}</td>
+          <td className="min-w-36 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="w-10 text-sm font-black text-slate-700">{customer.compliance}%</span>
+              <ProgressBar value={customer.compliance} />
+            </div>
+          </td>
+          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.assignedVehicles}</td>
+          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.inUseVehicles}</td>
+          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.availableVehicles}</td>
+          <td className="min-w-32 px-4 py-3"><ProgressBar value={customer.utilization} /></td>
+          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.orders}</td>
+          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{customer.revenue}</td>
+          <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={customer.incidents > 6 || customer.compliance < 90 ? "En riesgo" : "Controlado"} /></td>
+        </tr>
+      ))}
+    </DataPanel>
+  );
+}
+
 function Pill({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><div className="flex items-center gap-2 text-xs font-bold text-slate-500">{icon}{label}</div><strong className="mt-2 block text-lg font-black text-slate-950">{value}</strong></div>;
 }
@@ -1957,8 +2027,8 @@ function severityProgress(severity: Severity) {
 }
 
 function periodLabel(period: PeriodId) {
-  if (period === "today") return "Hoy";
-  if (period === "year") return "Anual";
+  if (period === "day") return "Dia";
+  if (period === "week") return "Semana";
   return "Mensual";
 }
 
