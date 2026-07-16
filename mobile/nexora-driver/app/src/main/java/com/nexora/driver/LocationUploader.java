@@ -6,7 +6,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class LocationUploader {
     public static void upload(String serverUrl, String token, String plate, String driver, String orderId, Location location, int battery) {
@@ -32,7 +35,7 @@ public class LocationUploader {
                         + "\"speed\":" + location.getSpeed() + ","
                         + "\"bearing\":" + location.getBearing() + ","
                         + "\"battery\":" + battery + ","
-                        + "\"recordedAt\":\"" + Instant.now().toString() + "\""
+                        + "\"recordedAt\":\"" + isoNow() + "\""
                         + "}";
 
                 byte[] body = json.getBytes(StandardCharsets.UTF_8);
@@ -51,5 +54,11 @@ public class LocationUploader {
     private static String escape(String value) {
         if (value == null) return "";
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static String isoNow() {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+        format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return format.format(new Date());
     }
 }

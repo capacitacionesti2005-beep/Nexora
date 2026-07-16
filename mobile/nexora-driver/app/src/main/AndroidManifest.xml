@@ -10,6 +10,7 @@
 
     <application
         android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
         android:label="Nexora Driver"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
